@@ -1,65 +1,195 @@
-import Image from "next/image";
+import Link from "next/link";
 
-export default function Home() {
+const featureCards = [
+  {
+    title: "Ajukan Surat",
+    description:
+      "Warga dapat mengirim permohonan surat secara online tanpa harus datang berkali-kali ke pengurus RT.",
+  },
+  {
+    title: "Status Realtime",
+    description:
+      "Pantau progres pengajuan dengan jelas, dari diterima, diproses, sampai siap diunduh.",
+  },
+  {
+    title: "Pengumuman RT",
+    description:
+      "Informasi agenda kerja bakti, rapat warga, dan pemberitahuan penting tampil dalam satu dashboard.",
+  },
+];
+
+const highlightPoints = [
+  "Dashboard modern dengan alur yang mudah dipahami semua warga",
+  "Warna biru-oranye yang ramah, bersih, dan konsisten di seluruh halaman",
+  "Tampilan responsif untuk kebutuhan presentasi company profile",
+];
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="space-y-10 pb-6">
+      <section className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
+        <div className="max-w-2xl">
+          <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+            Solusi Administrasi RT Modern
+          </span>
+          <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+            Administrasi RT digital yang rapi, cepat, dan mudah dipakai warga.
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
+            WargaKu membantu pengurus RT dan warga mengelola surat, memantau
+            status pengajuan, dan mengakses informasi lingkungan dalam satu
+            dashboard yang modern dan responsif.
           </p>
+
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link
+              href="/services"
+              className="rounded-full bg-[var(--color-accent)] px-7 py-4 text-base font-bold text-white shadow-[0_18px_40px_rgba(255,138,61,0.32)] transition hover:-translate-y-0.5"
+            >
+              Lihat Layanan
+            </Link>
+            <Link
+              href="/contact"
+              className="rounded-full border border-slate-200 bg-white px-7 py-4 text-base font-bold text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            >
+              Hubungi Kami
+            </Link>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {featureCards.map((feature) => (
+              <article
+                key={feature.title}
+                className="rounded-[2rem] border border-slate-200/80 bg-white/88 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+              >
+                <h2 className="text-xl font-bold text-slate-900">
+                  {feature.title}
+                </h2>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  {feature.description}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="relative">
+          <div className="rounded-[2.5rem] border border-white/70 bg-white/92 p-5 shadow-[0_24px_80px_rgba(45,129,193,0.18)]">
+            <div className="rounded-[2rem] bg-[linear-gradient(180deg,_#f7fbff_0%,_#edf5fb_100%)] p-5">
+              <div className="flex items-center gap-3 rounded-full bg-[var(--color-primary-soft)] px-4 py-3 text-sm font-semibold text-[var(--color-primary)]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />
+                Preview Dashboard Aplikasi
+              </div>
+
+              <div className="mt-5 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white">
+                <div className="grid min-h-[27rem] grid-cols-[4.5rem_1fr]">
+                  <aside className="flex flex-col gap-4 border-r border-slate-100 bg-slate-50 p-4">
+                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/18" />
+                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
+                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
+                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
+                  </aside>
+
+                  <div className="p-5">
+                    <div className="rounded-[1.5rem] bg-[var(--color-dashboard)] p-6 text-slate-950">
+                      <div className="grid gap-5 md:grid-cols-[0.75fr_1fr] md:items-center">
+                        <div className="relative h-48 overflow-hidden rounded-[1.5rem] bg-white/20">
+                          <div className="absolute left-8 top-9 h-24 w-24 rounded-full bg-white/90" />
+                          <div className="absolute left-4 top-16 h-28 w-20 rounded-full bg-[#6a5cff]" />
+                          <div className="absolute left-20 top-24 h-20 w-12 rounded-full bg-[#ff648c]" />
+                          <div className="absolute left-10 bottom-4 h-12 w-36 rounded-full bg-[#2d3759]" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/85">
+                            Tampilan Utama
+                          </p>
+                          <h2 className="mt-3 text-3xl font-extrabold leading-tight">
+                            Dashboard RT yang informatif
+                          </h2>
+                          <p className="mt-4 text-base leading-7 text-slate-800/80">
+                            Agenda RT, menu pengajuan surat, dan akses status
+                            pengajuan tampil dalam satu layar seperti referensi
+                            desain yang Anda lampirkan.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                      <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                        <p className="text-2xl font-extrabold text-slate-900">
+                          4 Modul Inti
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                          Dashboard, pengajuan surat, cek status, dan unduh
+                          surat dalam satu aplikasi.
+                        </p>
+                      </div>
+                      <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                        <p className="text-2xl font-extrabold text-slate-900">
+                          Realtime
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                          Status pengajuan bisa dipantau langsung tanpa proses
+                          manual yang berulang.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="absolute -bottom-6 right-2 hidden max-w-xs rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.12)] lg:block">
+            <span className="inline-flex rounded-full bg-[#d7f0df] px-4 py-2 text-sm font-semibold text-[#2d8b57]">
+              Nilai Utama
+            </span>
+            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+              {highlightPoints.map((point) => (
+                <li key={point} className="flex gap-3">
+                  <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </main>
+      </section>
+
+      <section className="grid gap-6 rounded-[2.5rem] bg-[linear-gradient(135deg,_#1f6ba5_0%,_#2d81c1_58%,_#5fa5da_100%)] p-8 text-white shadow-[0_20px_70px_rgba(31,107,165,0.24)] lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/75">
+            Mengapa WargaKu
+          </p>
+          <h2 className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">
+            Fitur singkat yang dibuat untuk kebutuhan administrasi lingkungan.
+          </h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-[1.75rem] bg-white/14 p-5 backdrop-blur-sm">
+            <h3 className="text-lg font-bold">Cepat</h3>
+            <p className="mt-3 text-sm leading-7 text-white/82">
+              Permohonan surat dikirim dalam hitungan menit tanpa alur yang
+              membingungkan.
+            </p>
+          </div>
+          <div className="rounded-[1.75rem] bg-white/14 p-5 backdrop-blur-sm">
+            <h3 className="text-lg font-bold">Transparan</h3>
+            <p className="mt-3 text-sm leading-7 text-white/82">
+              Pengurus dan warga dapat melihat status layanan dengan informasi
+              yang lebih jelas.
+            </p>
+          </div>
+          <div className="rounded-[1.75rem] bg-white/14 p-5 backdrop-blur-sm">
+            <h3 className="text-lg font-bold">Terpusat</h3>
+            <p className="mt-3 text-sm leading-7 text-white/82">
+              Pengumuman RT, layanan surat, dan arsip digital berada dalam satu
+              ekosistem.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
