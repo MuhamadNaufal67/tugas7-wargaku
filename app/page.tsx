@@ -25,50 +25,50 @@ const highlightPoints = [
 ];
 
 const cardClassName =
-  "rounded-[1.75rem] border border-slate-200/80 bg-white/92 shadow-[0_18px_45px_rgba(15,23,42,0.07)]";
+  "flex h-full flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/92 shadow-[0_16px_38px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_52px_rgba(15,23,42,0.1)]";
 
 export default function HomePage() {
   return (
-    <div className="space-y-14 pb-8 lg:space-y-16">
-      <section className="grid items-start gap-12 pt-2 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)] lg:gap-14 lg:pt-8">
-        <div className="max-w-2xl space-y-8 pt-4">
+    <div className="space-y-16 lg:space-y-20">
+      <section className="grid items-start gap-12 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)] lg:gap-16">
+        <div className="max-w-2xl space-y-10 pt-2 md:space-y-12 lg:pt-6">
           <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[var(--color-primary)] sm:text-sm">
             Solusi Administrasi RT Modern
           </span>
-          <div className="space-y-5">
-            <h1 className="text-4xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.8rem] lg:leading-[1.05]">
+          <div className="max-w-xl space-y-5 md:max-w-2xl md:space-y-6">
+            <h1 className="text-4xl font-extrabold tracking-[-0.04em] text-slate-950 sm:text-5xl md:text-[3.4rem] lg:text-6xl lg:leading-[1.05]">
               Administrasi RT digital yang rapi, cepat, dan mudah dipakai
               warga.
             </h1>
-            <p className="max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
+            <p className="max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
               WargaKu membantu pengurus RT dan warga mengelola surat, memantau
               status pengajuan, dan mengakses informasi lingkungan dalam satu
               dashboard yang modern dan responsif.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4 md:gap-5">
             <Link
               href="/services"
-              className="rounded-full bg-[var(--color-accent)] px-7 py-3.5 text-base font-bold text-white shadow-[0_18px_38px_rgba(255,138,61,0.28)] hover:-translate-y-0.5"
+              className="rounded-full bg-[var(--color-accent)] px-7 py-4 text-base font-bold text-white shadow-[0_18px_38px_rgba(255,138,61,0.28)] hover:-translate-y-0.5 hover:shadow-[0_24px_48px_rgba(255,138,61,0.34)]"
             >
               Lihat Layanan
             </Link>
             <Link
               href="/contact"
-              className="rounded-full border border-slate-200 bg-white px-7 py-3.5 text-base font-bold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              className="rounded-full border border-slate-200 bg-white px-7 py-4 text-base font-bold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.05)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] hover:shadow-[0_16px_32px_rgba(15,23,42,0.08)]"
             >
               Hubungi Kami
             </Link>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-3">
             {featureCards.map((feature) => (
-              <article key={feature.title} className={`${cardClassName} p-6`}>
+              <article key={feature.title} className={`${cardClassName} p-6 md:p-7`}>
                 <h2 className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl">
                   {feature.title}
                 </h2>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
                   {feature.description}
                 </p>
               </article>
@@ -76,16 +76,16 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="relative lg:pl-2">
+        <div className="relative lg:pl-2 xl:pl-4">
           <div className="rounded-[2.5rem] border border-white/80 bg-white/90 p-4 shadow-[0_24px_80px_rgba(45,129,193,0.16)] sm:p-5">
-            <div className="rounded-[2rem] bg-[linear-gradient(180deg,_#f7fbff_0%,_#edf5fb_100%)] p-4 sm:p-5">
+            <div className="rounded-[2rem] bg-[linear-gradient(180deg,_#f7fbff_0%,_#edf5fb_100%)] p-4 sm:p-5 lg:p-6">
               <div className="inline-flex items-center gap-3 rounded-full bg-[var(--color-primary-soft)] px-4 py-3 text-sm font-semibold text-[var(--color-primary)]">
                 <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />
                 Preview Dashboard Aplikasi
               </div>
 
               <div className="mt-5 overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white">
-                <div className="grid min-h-[27rem] grid-cols-[4.5rem_1fr]">
+                <div className="grid min-h-[27rem] grid-cols-[4rem_1fr] sm:grid-cols-[4.5rem_1fr]">
                   <aside className="flex flex-col gap-4 border-r border-slate-100 bg-slate-50/90 p-4">
                     <span className="h-10 rounded-2xl bg-[var(--color-primary)]/18" />
                     <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
@@ -102,14 +102,14 @@ export default function HomePage() {
                           <div className="absolute left-20 top-24 h-20 w-12 rounded-full bg-[#ff648c]" />
                           <div className="absolute bottom-4 left-10 h-12 w-36 rounded-full bg-[#2d3759]" />
                         </div>
-                        <div className="space-y-3">
-                          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/85">
+                        <div className="space-y-3.5">
+                          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/90">
                             Tampilan Utama
                           </p>
                           <h2 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
                             Dashboard RT yang informatif
                           </h2>
-                          <p className="text-sm leading-7 text-slate-800/80 sm:text-base">
+                          <p className="text-sm leading-relaxed text-slate-900/80 sm:text-base">
                             Agenda RT, menu pengajuan surat, dan akses status
                             pengajuan tampil dalam satu layar seperti referensi
                             desain yang Anda lampirkan.
@@ -123,7 +123,7 @@ export default function HomePage() {
                         <p className="text-2xl font-extrabold tracking-tight text-slate-900">
                           4 Modul Inti
                         </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                        <p className="mt-3 text-sm leading-relaxed text-slate-600">
                           Dashboard, pengajuan surat, cek status, dan unduh
                           surat dalam satu aplikasi.
                         </p>
@@ -132,7 +132,7 @@ export default function HomePage() {
                         <p className="text-2xl font-extrabold tracking-tight text-slate-900">
                           Realtime
                         </p>
-                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                        <p className="mt-3 text-sm leading-relaxed text-slate-600">
                           Status pengajuan bisa dipantau langsung tanpa proses
                           manual yang berulang.
                         </p>
@@ -148,7 +148,7 @@ export default function HomePage() {
             <span className="inline-flex rounded-full bg-[#d7f0df] px-4 py-2 text-sm font-semibold text-[#2d8b57]">
               Nilai Utama
             </span>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
+            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-slate-600">
               {highlightPoints.map((point) => (
                 <li key={point} className="flex gap-3">
                   <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
@@ -160,33 +160,33 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-6 rounded-[2.5rem] bg-[linear-gradient(135deg,_#1f6ba5_0%,_#2d81c1_58%,_#5fa5da_100%)] p-8 text-white shadow-[0_20px_70px_rgba(31,107,165,0.22)] lg:grid-cols-[0.9fr_1.1fr] lg:p-10">
+      <section className="grid gap-8 rounded-[2.5rem] bg-[linear-gradient(135deg,_#1f6ba5_0%,_#2d81c1_58%,_#5fa5da_100%)] px-6 py-16 text-white shadow-[0_20px_70px_rgba(31,107,165,0.22)] lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-16">
         <div className="space-y-4">
-          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/75">
+          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/80">
             Mengapa WargaKu
           </p>
           <h2 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
             Fitur singkat yang dibuat untuk kebutuhan administrasi lingkungan.
           </h2>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-[1.75rem] bg-white/14 p-5 backdrop-blur-sm">
+        <div className="grid gap-5 md:grid-cols-3">
+          <div className="rounded-[1.75rem] bg-white/14 p-6 backdrop-blur-sm">
             <h3 className="text-lg font-bold">Cepat</h3>
-            <p className="mt-3 text-sm leading-7 text-white/82">
+            <p className="mt-3 text-sm leading-relaxed text-white/88">
               Permohonan surat dikirim dalam hitungan menit tanpa alur yang
               membingungkan.
             </p>
           </div>
-          <div className="rounded-[1.75rem] bg-white/14 p-5 backdrop-blur-sm">
+          <div className="rounded-[1.75rem] bg-white/14 p-6 backdrop-blur-sm">
             <h3 className="text-lg font-bold">Transparan</h3>
-            <p className="mt-3 text-sm leading-7 text-white/82">
+            <p className="mt-3 text-sm leading-relaxed text-white/88">
               Pengurus dan warga dapat melihat status layanan dengan informasi
               yang lebih jelas.
             </p>
           </div>
-          <div className="rounded-[1.75rem] bg-white/14 p-5 backdrop-blur-sm">
+          <div className="rounded-[1.75rem] bg-white/14 p-6 backdrop-blur-sm">
             <h3 className="text-lg font-bold">Terpusat</h3>
-            <p className="mt-3 text-sm leading-7 text-white/82">
+            <p className="mt-3 text-sm leading-relaxed text-white/88">
               Pengumuman RT, layanan surat, dan arsip digital berada dalam satu
               ekosistem.
             </p>

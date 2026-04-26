@@ -28,34 +28,29 @@ export default function RootLayout({
           <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[32rem] bg-[radial-gradient(circle_at_top_left,_rgba(45,129,193,0.16),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(255,138,61,0.14),_transparent_32%),linear-gradient(180deg,_#f8fbff_0%,_#eef5fb_100%)]" />
           <header className="sticky top-0 z-30 border-b border-white/70 bg-white/88 backdrop-blur-xl">
             <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 lg:px-8">
-              <Link href="/" className="flex items-center gap-3.5">
-                <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-[0_12px_28px_rgba(45,129,193,0.16)] ring-1 ring-slate-200/70">
+              <Link
+                href="/"
+                className="group flex items-center rounded-full transition-transform duration-200 hover:-translate-y-0.5"
+              >
+                <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.5rem] bg-white p-1 shadow-[0_14px_30px_rgba(45,129,193,0.16)] ring-1 ring-slate-200/70 transition-shadow duration-200 group-hover:shadow-[0_18px_36px_rgba(45,129,193,0.2)]">
                   <Image
                     src="/logo.png"
                     alt="Logo WargaKu"
-                    width={46}
-                    height={46}
-                    className="h-11 w-11 object-contain"
+                    width={60}
+                    height={60}
+                    className="h-14 w-14 object-contain"
                     priority
                   />
-                </span>
-                <span className="flex flex-col justify-center">
-                  <span className="block text-2xl font-extrabold tracking-tight text-[var(--color-primary)]">
-                    Warga<span className="text-[var(--color-accent)]">Ku</span>
-                  </span>
-                  <span className="block text-xs font-medium text-slate-500">
-                    Administrasi RT Digital
-                  </span>
                 </span>
               </Link>
 
               <nav aria-label="Main navigation" className="hidden md:block">
-                <ul className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/75 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+                <ul className="flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/78 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
                   {navigationItems.map((item) => (
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
+                        className="rounded-full px-5 py-2.5 text-sm font-semibold text-slate-600 transition duration-200 hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] hover:shadow-[inset_0_0_0_1px_rgba(45,129,193,0.08)]"
                       >
                         {item.label}
                       </Link>
@@ -66,7 +61,7 @@ export default function RootLayout({
             </div>
           </header>
 
-          <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-10 lg:px-8">
+          <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-16 lg:px-8 lg:py-20">
             {children}
           </main>
 
