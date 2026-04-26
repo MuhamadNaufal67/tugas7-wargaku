@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const featureCards = [
@@ -85,37 +86,17 @@ export default function HomePage() {
               </div>
 
               <div className="mt-5 overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-white">
-                <div className="grid min-h-[27rem] grid-cols-[4rem_1fr] sm:grid-cols-[4.5rem_1fr]">
-                  <aside className="flex flex-col gap-4 border-r border-slate-100 bg-slate-50/90 p-4">
-                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/18" />
-                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
-                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
-                    <span className="h-10 rounded-2xl bg-[var(--color-primary)]/12" />
-                  </aside>
-
-                  <div className="p-4 sm:p-5">
-                    <div className="rounded-[1.5rem] bg-[var(--color-dashboard)] p-5 text-slate-950 sm:p-6">
-                      <div className="grid gap-5 md:grid-cols-[0.75fr_1fr] md:items-center">
-                        <div className="relative h-48 overflow-hidden rounded-[1.5rem] bg-white/20">
-                          <div className="absolute left-8 top-9 h-24 w-24 rounded-full bg-white/90" />
-                          <div className="absolute left-4 top-16 h-28 w-20 rounded-full bg-[#6a5cff]" />
-                          <div className="absolute left-20 top-24 h-20 w-12 rounded-full bg-[#ff648c]" />
-                          <div className="absolute bottom-4 left-10 h-12 w-36 rounded-full bg-[#2d3759]" />
-                        </div>
-                        <div className="space-y-3.5">
-                          <p className="text-sm font-bold uppercase tracking-[0.22em] text-white/90">
-                            Tampilan Utama
-                          </p>
-                          <h2 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
-                            Dashboard RT yang informatif
-                          </h2>
-                          <p className="text-sm leading-relaxed text-slate-900/80 sm:text-base">
-                            Agenda RT, menu pengajuan surat, dan akses status
-                            pengajuan tampil dalam satu layar seperti referensi
-                            desain yang Anda lampirkan.
-                          </p>
-                        </div>
-                      </div>
+                <div className="min-h-[27rem] p-4 sm:p-5">
+                  <div>
+                    <div className="overflow-hidden rounded-[1.5rem] border border-white/60 bg-[var(--color-dashboard)] shadow-[0_16px_36px_rgba(45,129,193,0.15)]">
+                      <Image
+                        src="/HI-FI%20DASHBOARD.png"
+                        alt="Preview dashboard aplikasi WargaKu"
+                        width={900}
+                        height={960}
+                        className="h-auto w-full object-contain"
+                        priority
+                      />
                     </div>
 
                     <div className="mt-5 grid gap-4 sm:grid-cols-2">

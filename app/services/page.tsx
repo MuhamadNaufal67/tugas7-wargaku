@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { headers } from "next/headers";
 
 type ServiceItem = {
@@ -5,6 +6,17 @@ type ServiceItem = {
   title: string;
   description: string;
   detail: string;
+};
+
+const serviceImages: Record<number, { src: string; alt: string }> = {
+  1: {
+    src: "/HI-FI%20Ajukan%20Surat%201.png",
+    alt: "Preview fitur Ajukan Surat",
+  },
+  2: {
+    src: "/HI-FI%20Status%20Pengajuan%20Surat.png",
+    alt: "Preview fitur Status Pengajuan",
+  },
 };
 
 async function getServices() {
@@ -42,9 +54,9 @@ export default async function ServicesPage() {
           Fitur inti WargaKu untuk kebutuhan administrasi RT digital.
         </h1>
         <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-          Data layanan di bawah ini diambil dari route handler
-          <span className="font-semibold text-slate-900"> /api/services </span>
-          menggunakan `fetch` pada Server Component.
+          WargaKu menyediakan layanan digital untuk pengajuan surat, pemantauan
+          status, dan penyampaian informasi RT dalam satu alur yang lebih rapi
+          dan mudah digunakan.
         </p>
       </section>
 
@@ -65,6 +77,17 @@ export default async function ServicesPage() {
             <h2 className="mt-6 text-2xl font-bold text-slate-900">
               {service.title}
             </h2>
+            {serviceImages[service.id] ? (
+              <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-slate-200 bg-slate-50 p-2">
+                <Image
+                  src={serviceImages[service.id].src}
+                  alt={serviceImages[service.id].alt}
+                  width={640}
+                  height={360}
+                  className="h-auto max-h-40 w-full rounded-[0.9rem] object-contain"
+                />
+              </div>
+            ) : null}
             <p className="mt-4 text-base leading-8 text-slate-600">
               {service.description}
             </p>

@@ -30,17 +30,25 @@ export default function RootLayout({
             <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 lg:px-8">
               <Link
                 href="/"
-                className="group flex items-center rounded-full transition-transform duration-200 hover:-translate-y-0.5"
+                className="group flex items-center gap-3.5 transition-transform duration-200 hover:-translate-y-0.5"
               >
-                <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[1.5rem] bg-white p-1 shadow-[0_14px_30px_rgba(45,129,193,0.16)] ring-1 ring-slate-200/70 transition-shadow duration-200 group-hover:shadow-[0_18px_36px_rgba(45,129,193,0.2)]">
+                <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl sm:h-12 sm:w-12">
                   <Image
                     src="/logo.png"
                     alt="Logo WargaKu"
-                    width={60}
-                    height={60}
-                    className="h-14 w-14 object-contain"
+                    width={44}
+                    height={44}
+                    className="h-10 w-10 object-contain sm:h-11 sm:w-11"
                     priority
                   />
+                </span>
+                <span className="flex flex-col justify-center leading-none">
+                  <span className="text-[1.75rem] font-extrabold tracking-tight text-[var(--color-primary)] sm:text-[2rem]">
+                    Warga<span className="text-[var(--color-accent)]">Ku</span>
+                  </span>
+                  <span className="mt-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500 sm:text-[0.72rem]">
+                    Administrasi Digital
+                  </span>
                 </span>
               </Link>
 
