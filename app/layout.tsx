@@ -24,13 +24,11 @@ export default function RootLayout({
   return (
     <html lang="id" className="antialiased">
       <body className="min-h-screen bg-[var(--color-surface)] text-slate-900">
-        <div className="relative flex min-h-screen flex-col overflow-hidden">
-          
+        <div className="relative flex min-h-screen flex-col">
           <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[32rem] bg-[radial-gradient(circle_at_top_left,_rgba(45,129,193,0.16),_transparent_42%),radial-gradient(circle_at_top_right,_rgba(255,138,61,0.14),_transparent_32%),linear-gradient(180deg,_#f8fbff_0%,_#eef5fb_100%)]" />
 
           <header className="sticky top-0 z-30 border-b border-white/70 bg-white/88 backdrop-blur-xl">
             <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-6 px-6 py-4 lg:px-8">
-              
               <Link
                 href="/"
                 className="group flex items-center gap-3.5 transition-transform duration-200 hover:-translate-y-0.5"
@@ -70,16 +68,15 @@ export default function RootLayout({
                   ))}
                 </ul>
               </nav>
-
             </div>
           </header>
+
           <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-16 lg:px-8 lg:py-20">
             {children}
           </main>
 
           <footer className="border-t border-slate-200/70 bg-white/92">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-              
+            <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-10 lg:flex-row lg:items-center lg:justify-between lg:px-8">
               <div>
                 <p className="text-lg font-bold text-slate-900">
                   WargaKu untuk administrasi RT yang lebih tertata.
@@ -90,17 +87,16 @@ export default function RootLayout({
                 </p>
               </div>
 
-              <div className="flex items-center gap-3.5">
-                <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl">
                   <Image
                     src="/logo.png"
                     alt="Logo WargaKu"
-                    width={40}
-                    height={40}
-                    className="object-contain"
+                    width={44}
+                    height={44}
+                    className="h-10 w-10 object-contain"
                   />
                 </span>
-
                 <span className="flex flex-col leading-none">
                   <span className="text-lg font-extrabold text-[var(--color-primary)]">
                     Warga<span className="text-[var(--color-accent)]">Ku</span>
@@ -110,10 +106,8 @@ export default function RootLayout({
                   </span>
                 </span>
               </div>
-
             </div>
           </footer>
-
         </div>
       </body>
     </html>
