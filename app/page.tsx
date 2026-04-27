@@ -125,7 +125,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="absolute -bottom-8 right-2 hidden max-w-xs rounded-[2rem] border border-white/85 bg-white/95 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.12)] lg:block">
+          <div className="absolute -bottom-52 right-6 hidden w-[560px] rounded-[2rem] border border-white/85 bg-white/95 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.12)] lg:block">
             <span className="inline-flex rounded-full bg-[#d7f0df] px-4 py-2 text-sm font-semibold text-[#2d8b57]">
               Nilai Utama
             </span>
@@ -133,7 +133,7 @@ export default function HomePage() {
               {highlightPoints.map((point) => (
                 <li key={point} className="flex gap-3">
                   <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
-                  <span>{point}</span>
+                  <span className="whitespace-nowrap">{point}</span>
                 </li>
               ))}
             </ul>
