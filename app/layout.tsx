@@ -18,9 +18,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="id" className="antialiased">
       <body className="min-h-screen bg-[var(--color-surface)] text-slate-900">
@@ -43,6 +43,7 @@ export default function RootLayout({
                     priority
                   />
                 </span>
+
                 <span className="flex flex-col justify-center leading-none">
                   <span className="text-[1.75rem] font-extrabold tracking-tight text-[var(--color-primary)] sm:text-[2rem]">
                     Warga<span className="text-[var(--color-accent)]">Ku</span>
