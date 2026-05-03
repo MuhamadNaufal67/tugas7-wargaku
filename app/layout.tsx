@@ -7,6 +7,7 @@ const navigationItems = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/services", label: "Services" },
+  { href: "/ajukan-surat", label: "Ajukan Surat" },
   { href: "/contact", label: "Contact" },
 ];
 
