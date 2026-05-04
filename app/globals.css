@@ -50,3 +50,13 @@ textarea::placeholder {
   background: rgba(45, 129, 193, 0.18);
   color: #0f172a;
 }
+
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
+}

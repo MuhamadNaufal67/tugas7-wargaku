@@ -1,6 +1,8 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { ToastContainer } from "@/components/Toast";
+import { useToast } from "@/hooks/useToast";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type FormState = {
@@ -31,6 +33,7 @@ export default function AjukanSuratPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toasts, showToast, dismiss } = useToast();
 
   function handleChange(
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -72,7 +75,7 @@ export default function AjukanSuratPage() {
     ) {
       const message = "Semua field wajib diisi kecuali dokumen.";
       setErrorMessage(message);
-      alert(message);
+      showToast("warning", "Perlu diperiksa", message);
       return;
     }
 
@@ -107,11 +110,13 @@ export default function AjukanSuratPage() {
 
     if (error) {
       setErrorMessage(error.message);
-      alert(`Pengajuan gagal: ${error.message}`);
+      const toastMessage =
+        error.message || "Terjadi kesalahan saat mengirim.";
+      showToast("error", "Gagal", toastMessage);
       return;
     }
 
-    alert("Pengajuan berhasil");
+    showToast("success", "Berhasil", "Pengajuan berhasil dikirim");
     resetForm();
   }
 
@@ -258,6 +263,8 @@ export default function AjukanSuratPage() {
           </div>
         </form>
       </div>
+
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </section>
   );
 }
