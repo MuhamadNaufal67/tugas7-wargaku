@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
+import Notification from "./notification";
 
 const navigationItems = [
   { href: "/", label: "Home" },
@@ -69,6 +70,9 @@ export default function RootLayout({
                   ))}
                 </ul>
               </nav>
+              <div className="flex items-center gap-3">
+                <Notification />
+              </div>
             </div>
           </header>
 
