@@ -6,6 +6,7 @@ type Database = {
       pengajuan_surat: {
         Row: {
           alamat: string;
+          created_at: string | null;
           dokumen: string | null;
           jenis_surat: string;
           nama: string;
@@ -14,6 +15,7 @@ type Database = {
         };
         Insert: {
           alamat: string;
+          created_at?: string | null;
           dokumen?: string | null;
           jenis_surat: string;
           nama: string;
@@ -22,6 +24,7 @@ type Database = {
         };
         Update: {
           alamat?: string;
+          created_at?: string | null;
           dokumen?: string | null;
           jenis_surat?: string;
           nama?: string;
