@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ToastContainer } from "@/components/Toast";
+import { useToast } from "@/hooks/useToast";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type PengajuanSurat = {
@@ -13,6 +16,7 @@ type PengajuanSurat = {
 };
 
 type StatusFilter = "semua" | "pending" | "diproses" | "selesai" | "ditolak";
+type UpdatableStatus = "pending" | "diproses" | "selesai";
 
 const statusStyles = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -28,6 +32,12 @@ const filterOptions: { value: StatusFilter; label: string }[] = [
   { value: "diproses", label: "Diproses" },
   { value: "selesai", label: "Selesai" },
   { value: "ditolak", label: "Ditolak" },
+];
+
+const updateStatusOptions: { value: UpdatableStatus; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "diproses", label: "Diproses" },
+  { value: "selesai", label: "Selesai" },
 ];
 
 function formatTanggal(createdAt: string | null) {
@@ -59,13 +69,39 @@ function getStatusLabel(status: string) {
   return status;
 }
 
+function getPengajuanKey(
+  item: Pick<PengajuanSurat, "nik" | "created_at" | "jenis_surat">,
+) {
+  return `${item.nik}-${item.created_at ?? "tanpa-tanggal"}-${item.jenis_surat}`;
+}
+
 export default function StatusPage() {
+  const router = useRouter();
   const [dataPengajuan, setDataPengajuan] = useState<PengajuanSurat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("semua");
   const [selectedPengajuan, setSelectedPengajuan] =
     useState<PengajuanSurat | null>(null);
+  const [updatingStatusMap, setUpdatingStatusMap] = useState<
+    Record<string, UpdatableStatus | undefined>
+  >({});
+  const [isAdminLoggedIn] = useState(() => {
+    if (typeof document === "undefined") {
+      return false;
+    }
+
+    return document.cookie
+      .split("; ")
+      .some((cookie) => cookie === "isLoggedIn=true");
+  });
+  const { toasts, showToast, dismiss } = useToast();
+
+  function handleLogout() {
+    document.cookie = "isLoggedIn=; path=/; max-age=0; samesite=lax";
+    router.replace("/login");
+    router.refresh();
+  }
 
   useEffect(() => {
     async function fetchPengajuanSurat() {
@@ -114,21 +150,127 @@ export default function StatusPage() {
     return normalizedStatus === activeFilter;
   });
 
+  async function handleStatusUpdate(
+    item: PengajuanSurat,
+    nextStatus: UpdatableStatus,
+  ) {
+    if (!isAdminLoggedIn) {
+      showToast(
+        "warning",
+        "Akses terbatas",
+        "Silakan login sebagai admin untuk memperbarui status.",
+      );
+      return;
+    }
+
+    const itemKey = getPengajuanKey(item);
+    const previousStatus = item.status;
+
+    if (previousStatus.toLowerCase() === nextStatus) {
+      return;
+    }
+
+    setUpdatingStatusMap((current) => ({
+      ...current,
+      [itemKey]: nextStatus,
+    }));
+
+    // Optimistic update: ubah UI langsung sebelum request ke Supabase selesai.
+    setDataPengajuan((current) =>
+      current.map((pengajuan) =>
+        getPengajuanKey(pengajuan) === itemKey
+          ? { ...pengajuan, status: nextStatus }
+          : pengajuan,
+      ),
+    );
+
+    setSelectedPengajuan((current) =>
+      current && getPengajuanKey(current) === itemKey
+        ? { ...current, status: nextStatus }
+        : current,
+    );
+
+    try {
+      const supabase = getSupabaseClient();
+      let query = supabase
+        .from("pengajuan_surat")
+        .update({ status: nextStatus })
+        .eq("nik", item.nik)
+        .eq("jenis_surat", item.jenis_surat);
+
+      if (item.created_at) {
+        query = query.eq("created_at", item.created_at);
+      }
+
+      const { error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      showToast(
+        "success",
+        "Status diperbarui",
+        `Status berhasil diubah ke ${getStatusLabel(nextStatus)}.`,
+      );
+    } catch (error) {
+      // Rollback ke status sebelumnya jika update gagal.
+      setDataPengajuan((current) =>
+        current.map((pengajuan) =>
+          getPengajuanKey(pengajuan) === itemKey
+            ? { ...pengajuan, status: previousStatus }
+            : pengajuan,
+        ),
+      );
+
+      setSelectedPengajuan((current) =>
+        current && getPengajuanKey(current) === itemKey
+          ? { ...current, status: previousStatus }
+          : current,
+      );
+
+      showToast(
+        "error",
+        "Gagal memperbarui",
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat memperbarui status.",
+      );
+    } finally {
+      setUpdatingStatusMap((current) => ({
+        ...current,
+        [itemKey]: undefined,
+      }));
+    }
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-[2.5rem] border border-white/80 bg-white/95 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:p-10">
-        <div className="max-w-3xl">
-          <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)]">
-            Status Pengajuan
-          </span>
-          <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
-            Pantau progres pengajuan surat warga secara real-time.
-          </h1>
-          <p className="mt-5 text-base leading-8 text-slate-600 sm:text-lg">
-            Data pada halaman ini diambil langsung dari Supabase dan
-            ditampilkan dalam bentuk card agar proses pengajuan lebih mudah
-            dipantau.
-          </p>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)]">
+              Status Pengajuan
+            </span>
+            <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
+              Pantau progres pengajuan surat warga secara real-time.
+            </h1>
+            <p className="mt-5 text-base leading-8 text-slate-600 sm:text-lg">
+              Data pada halaman ini diambil langsung dari Supabase dan
+              ditampilkan dalam bentuk card agar proses pengajuan lebih mudah
+              dipantau.
+            </p>
+          </div>
+
+          {isAdminLoggedIn ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex shrink-0 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.04)] hover:border-red-200 hover:text-red-600"
+            >
+              Logout Admin
+            </button>
+          ) : null}
         </div>
       </section>
 
@@ -178,7 +320,7 @@ export default function StatusPage() {
         {!isLoading && !errorMessage
           ? filteredPengajuan.map((item) => (
               <article
-                key={`${item.nik}-${item.created_at ?? item.jenis_surat}`}
+                key={getPengajuanKey(item)}
                 className="rounded-[2rem] border border-slate-200/90 bg-[linear-gradient(180deg,_#ffffff_0%,_#f8fbff_100%)] p-6 shadow-[0_16px_42px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_52px_rgba(15,23,42,0.08)] sm:p-7"
               >
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -227,6 +369,50 @@ export default function StatusPage() {
                     >
                       Lihat Detail
                     </button>
+
+                    {isAdminLoggedIn ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {updateStatusOptions.map((statusOption) => {
+                          const itemKey = getPengajuanKey(item);
+                          const activeUpdate = updatingStatusMap[itemKey];
+                          const isUpdating =
+                            activeUpdate === statusOption.value;
+                          const isDisabled = Boolean(activeUpdate);
+                          const isActive =
+                            item.status.toLowerCase() === statusOption.value;
+
+                          return (
+                            <button
+                              key={statusOption.value}
+                              type="button"
+                              onClick={() =>
+                                handleStatusUpdate(item, statusOption.value)
+                              }
+                              disabled={isDisabled}
+                              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                                isActive
+                                  ? `${getStatusClassName(statusOption.value)} shadow-[0_10px_24px_rgba(15,23,42,0.08)]`
+                                  : "border border-slate-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                              }`}
+                            >
+                              {isUpdating ? (
+                                <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                              ) : null}
+                              <span>
+                                {isUpdating
+                                  ? "Menyimpan..."
+                                  : statusOption.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-4 text-sm font-medium text-slate-500">
+                        Login admin diperlukan untuk memperbarui status
+                        pengajuan.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex shrink-0">
@@ -343,6 +529,8 @@ export default function StatusPage() {
           </div>
         </div>
       ) : null}
+
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

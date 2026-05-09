@@ -13,6 +13,13 @@ type FormState = {
   dokumen: string;
 };
 
+type FormErrors = {
+  nama?: string;
+  nik?: string;
+  alamat?: string;
+  jenis_surat?: string;
+};
+
 const initialFormState: FormState = {
   nama: "",
   nik: "",
@@ -31,9 +38,66 @@ const jenisSuratOptions = [
 export default function AjukanSuratPage() {
   const [formData, setFormData] = useState<FormState>(initialFormState);
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toasts, showToast, dismiss } = useToast();
+
+  function validateField(name: keyof FormErrors, value: string) {
+    const trimmedValue = value.trim();
+
+    if (name === "nama") {
+      if (!trimmedValue) return "Nama wajib diisi.";
+      if (!/^[A-Za-z\s]+$/.test(trimmedValue)) {
+        return "Nama hanya boleh berisi huruf dan spasi.";
+      }
+      return "";
+    }
+
+    if (name === "nik") {
+      if (!trimmedValue) return "NIK wajib diisi.";
+      if (!/^\d+$/.test(trimmedValue)) return "NIK hanya boleh berisi angka.";
+      if (trimmedValue.length !== 16) return "NIK harus terdiri dari 16 digit.";
+      return "";
+    }
+
+    if (name === "alamat") {
+      if (!trimmedValue) return "Alamat wajib diisi.";
+      if (trimmedValue.length < 5) return "Alamat minimal 5 karakter.";
+      return "";
+    }
+
+    if (name === "jenis_surat") {
+      if (!trimmedValue) return "Jenis surat wajib dipilih.";
+      return "";
+    }
+
+    return "";
+  }
+
+  function validateForm() {
+    const nextErrors: FormErrors = {
+      nama: validateField("nama", formData.nama),
+      nik: validateField("nik", formData.nik),
+      alamat: validateField("alamat", formData.alamat),
+      jenis_surat: validateField("jenis_surat", formData.jenis_surat),
+    };
+
+    const normalizedErrors = Object.fromEntries(
+      Object.entries(nextErrors).filter(([, value]) => value),
+    ) as FormErrors;
+
+    setFieldErrors(normalizedErrors);
+    return Object.keys(normalizedErrors).length === 0;
+  }
+
+  function getInputClassName(hasError: boolean) {
+    return `w-full rounded-2xl bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:bg-white ${
+      hasError
+        ? "border border-red-300 focus:border-red-500"
+        : "border border-slate-200 focus:border-[var(--color-primary)]"
+    }`;
+  }
 
   function handleChange(
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
@@ -43,6 +107,14 @@ export default function AjukanSuratPage() {
       ...current,
       [name]: value,
     }));
+
+    if (name in fieldErrors || name === "nama" || name === "nik" || name === "alamat" || name === "jenis_surat") {
+      const error = validateField(name as keyof FormErrors, value);
+      setFieldErrors((current) => ({
+        ...current,
+        [name]: error || undefined,
+      }));
+    }
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -57,6 +129,7 @@ export default function AjukanSuratPage() {
   function resetForm() {
     setFormData(initialFormState);
     setErrorMessage("");
+    setFieldErrors({});
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -67,13 +140,8 @@ export default function AjukanSuratPage() {
     event.preventDefault();
     setErrorMessage("");
 
-    if (
-      !formData.nama.trim() ||
-      !formData.nik.trim() ||
-      !formData.alamat.trim() ||
-      !formData.jenis_surat.trim()
-    ) {
-      const message = "Semua field wajib diisi kecuali dokumen.";
+    if (!validateForm()) {
+      const message = "Periksa kembali field yang masih belum valid.";
       setErrorMessage(message);
       showToast("warning", "Perlu diperiksa", message);
       return;
@@ -151,9 +219,15 @@ export default function AjukanSuratPage() {
                 type="text"
                 value={formData.nama}
                 onChange={handleChange}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                className={getInputClassName(Boolean(fieldErrors.nama))}
                 placeholder="Masukkan nama lengkap"
+                aria-invalid={Boolean(fieldErrors.nama)}
               />
+              {fieldErrors.nama ? (
+                <p className="mt-2 text-xs font-medium text-red-600">
+                  {fieldErrors.nama}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -169,9 +243,15 @@ export default function AjukanSuratPage() {
                 type="text"
                 value={formData.nik}
                 onChange={handleChange}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                className={getInputClassName(Boolean(fieldErrors.nik))}
                 placeholder="Masukkan NIK"
+                aria-invalid={Boolean(fieldErrors.nik)}
               />
+              {fieldErrors.nik ? (
+                <p className="mt-2 text-xs font-medium text-red-600">
+                  {fieldErrors.nik}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -188,9 +268,19 @@ export default function AjukanSuratPage() {
               rows={4}
               value={formData.alamat}
               onChange={handleChange}
-              className="w-full rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+              className={`w-full rounded-[1.5rem] bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:bg-white ${
+                fieldErrors.alamat
+                  ? "border border-red-300 focus:border-red-500"
+                  : "border border-slate-200 focus:border-[var(--color-primary)]"
+              }`}
               placeholder="Masukkan alamat lengkap"
+              aria-invalid={Boolean(fieldErrors.alamat)}
             />
+            {fieldErrors.alamat ? (
+              <p className="mt-2 text-xs font-medium text-red-600">
+                {fieldErrors.alamat}
+              </p>
+            ) : null}
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
@@ -206,7 +296,8 @@ export default function AjukanSuratPage() {
                 name="jenis_surat"
                 value={formData.jenis_surat}
                 onChange={handleChange}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                className={getInputClassName(Boolean(fieldErrors.jenis_surat))}
+                aria-invalid={Boolean(fieldErrors.jenis_surat)}
               >
                 <option value="">Pilih jenis surat</option>
                 {jenisSuratOptions.map((option) => (
@@ -215,6 +306,11 @@ export default function AjukanSuratPage() {
                   </option>
                 ))}
               </select>
+              {fieldErrors.jenis_surat ? (
+                <p className="mt-2 text-xs font-medium text-red-600">
+                  {fieldErrors.jenis_surat}
+                </p>
+              ) : null}
             </div>
 
             <div>

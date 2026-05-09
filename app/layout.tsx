@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 import Notification from "./notification";
+import AdminAuthButton from "@/components/AdminAuthButton";
 
 const navigationItems = [
   { href: "/", label: "Home" },
@@ -72,6 +73,7 @@ export default function RootLayout({
                 </ul>
               </nav>
               <div className="flex items-center gap-3">
+                <AdminAuthButton />
                 <Notification />
               </div>
             </div>
