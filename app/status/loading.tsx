@@ -28,7 +28,9 @@ function StatusCardSkeleton() {
   );
 }
 
-export default function Loading() {
+export default async function Loading() {
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
   return (
     <div className="animate-pulse space-y-8">
       <section className="rounded-[2.5rem] border border-white/80 bg-white/95 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:p-10">
