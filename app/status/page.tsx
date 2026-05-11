@@ -83,9 +83,11 @@ export default function StatusPage() {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("semua");
   const [selectedPengajuan, setSelectedPengajuan] =
     useState<PengajuanSurat | null>(null);
+
   const [updatingStatusMap, setUpdatingStatusMap] = useState<
     Record<string, UpdatableStatus | undefined>
   >({});
+
   const [isAdminLoggedIn] = useState(() => {
     if (typeof document === "undefined") {
       return false;
@@ -95,6 +97,7 @@ export default function StatusPage() {
       .split("; ")
       .some((cookie) => cookie === "isLoggedIn=true");
   });
+
   const { toasts, showToast, dismiss } = useToast();
 
   function handleLogout() {
@@ -111,7 +114,6 @@ export default function StatusPage() {
       try {
         const supabase = getSupabaseClient();
 
-        // Ambil semua data pengajuan surat dari Supabase dan urutkan dari terbaru.
         const { data, error } = await supabase
           .from("pengajuan_surat")
           .select("*")
@@ -175,7 +177,6 @@ export default function StatusPage() {
       [itemKey]: nextStatus,
     }));
 
-    // Optimistic update: ubah UI langsung sebelum request ke Supabase selesai.
     setDataPengajuan((current) =>
       current.map((pengajuan) =>
         getPengajuanKey(pengajuan) === itemKey
@@ -184,14 +185,9 @@ export default function StatusPage() {
       ),
     );
 
-    setSelectedPengajuan((current) =>
-      current && getPengajuanKey(current) === itemKey
-        ? { ...current, status: nextStatus }
-        : current,
-    );
-
     try {
       const supabase = getSupabaseClient();
+
       let query = supabase
         .from("pengajuan_surat")
         .update({ status: nextStatus })
@@ -214,19 +210,12 @@ export default function StatusPage() {
         `Status berhasil diubah ke ${getStatusLabel(nextStatus)}.`,
       );
     } catch (error) {
-      // Rollback ke status sebelumnya jika update gagal.
       setDataPengajuan((current) =>
         current.map((pengajuan) =>
           getPengajuanKey(pengajuan) === itemKey
             ? { ...pengajuan, status: previousStatus }
             : pengajuan,
         ),
-      );
-
-      setSelectedPengajuan((current) =>
-        current && getPengajuanKey(current) === itemKey
-          ? { ...current, status: previousStatus }
-          : current,
       );
 
       showToast(
@@ -244,6 +233,61 @@ export default function StatusPage() {
     }
   }
 
+  async function handleDeletePengajuan(item: PengajuanSurat) {
+    const confirmDelete = window.confirm(
+      "Yakin ingin menghapus pengajuan ini?",
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    const previousData = dataPengajuan;
+
+    setDataPengajuan((current) =>
+      current.filter(
+        (pengajuan) =>
+          getPengajuanKey(pengajuan) !== getPengajuanKey(item),
+      ),
+    );
+
+    try {
+      const supabase = getSupabaseClient();
+
+      let query = supabase
+        .from("pengajuan_surat")
+        .delete()
+        .eq("nik", item.nik)
+        .eq("jenis_surat", item.jenis_surat);
+
+      if (item.created_at) {
+        query = query.eq("created_at", item.created_at);
+      }
+
+      const { error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      showToast(
+        "success",
+        "Berhasil dihapus",
+        "Pengajuan berhasil dihapus.",
+      );
+    } catch (error) {
+      setDataPengajuan(previousData);
+
+      showToast(
+        "error",
+        "Gagal menghapus",
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat menghapus.",
+      );
+    }
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-[2.5rem] border border-white/80 bg-white/95 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:p-10">
@@ -252,21 +296,17 @@ export default function StatusPage() {
             <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)]">
               Status Pengajuan
             </span>
+
             <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
               Pantau progres pengajuan surat warga secara real-time.
             </h1>
-            <p className="mt-5 text-base leading-8 text-slate-600 sm:text-lg">
-              Data pada halaman ini diambil langsung dari Supabase dan
-              ditampilkan dalam bentuk card agar proses pengajuan lebih mudah
-              dipantau.
-            </p>
           </div>
 
           {isAdminLoggedIn ? (
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex shrink-0 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.04)] hover:border-red-200 hover:text-red-600"
+              className="inline-flex shrink-0 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700"
             >
               Logout Admin
             </button>
@@ -284,36 +324,21 @@ export default function StatusPage() {
                 key={filter.value}
                 type="button"
                 onClick={() => setActiveFilter(filter.value)}
-                className={`relative rounded-full px-4 py-2 text-sm font-semibold transition ${
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
                   isActive
-                    ? "bg-[var(--color-primary)] text-white shadow-[0_12px_28px_rgba(45,129,193,0.18)]"
-                    : "bg-white text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]"
+                    ? "bg-[var(--color-primary)] text-white"
+                    : "bg-white text-slate-600"
                 }`}
               >
                 {filter.label}
-                {isActive ? (
-                  <span className="absolute inset-x-4 -bottom-1 h-1 rounded-full bg-white/85" />
-                ) : null}
               </button>
             );
           })}
         </div>
 
         {isLoading ? (
-          <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-base font-medium text-slate-500 shadow-[0_14px_35px_rgba(15,23,42,0.05)]">
+          <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-base font-medium text-slate-500">
             Loading...
-          </div>
-        ) : null}
-
-        {!isLoading && errorMessage ? (
-          <div className="rounded-[2rem] border border-red-200 bg-red-50 px-6 py-8 text-base text-red-600 shadow-[0_14px_35px_rgba(239,68,68,0.08)]">
-            {errorMessage}
-          </div>
-        ) : null}
-
-        {!isLoading && !errorMessage && filteredPengajuan.length === 0 ? (
-          <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-base font-medium text-slate-500 shadow-[0_14px_35px_rgba(15,23,42,0.05)]">
-            Belum ada pengajuan
           </div>
         ) : null}
 
@@ -321,98 +346,69 @@ export default function StatusPage() {
           ? filteredPengajuan.map((item) => (
               <article
                 key={getPengajuanKey(item)}
-                className="rounded-[2rem] border border-slate-200/90 bg-[linear-gradient(180deg,_#ffffff_0%,_#f8fbff_100%)] p-6 shadow-[0_16px_42px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_52px_rgba(15,23,42,0.08)] sm:p-7"
+                className="rounded-[2rem] border border-slate-200 bg-white p-6"
               >
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                   <div className="max-w-3xl">
-                    <h2 className="text-2xl font-bold tracking-tight text-slate-950">
+                    <h2 className="text-2xl font-bold text-slate-950">
                       {item.jenis_surat}
                     </h2>
-                    <p className="mt-2 text-sm font-medium text-slate-500">
+
+                    <p className="mt-2 text-sm text-slate-500">
                       Diajukan {formatTanggal(item.created_at)}
                     </p>
 
-                    <div className="mt-5 flex items-center gap-3">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M20 21a8 8 0 0 0-16 0" />
-                          <circle cx="12" cy="7" r="4" />
-                        </svg>
-                      </span>
-                      <div>
-                        <p className="text-lg font-bold text-slate-900">
-                          {item.nama}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          NIK {item.nik}
-                        </p>
-                      </div>
+                    <div className="mt-5">
+                      <p className="text-lg font-bold text-slate-900">
+                        {item.nama}
+                      </p>
+
+                      <p className="text-sm text-slate-500">
+                        NIK {item.nik}
+                      </p>
                     </div>
 
-                    <p className="mt-4 text-base leading-7 text-slate-600">
+                    <p className="mt-4 text-base text-slate-600">
                       {item.alamat}
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPengajuan(item)}
-                      className="mt-5 inline-flex rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(45,129,193,0.18)] hover:-translate-y-0.5 hover:bg-[#236fa8]"
-                    >
-                      Lihat Detail
-                    </button>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPengajuan(item)}
+                        className="inline-flex rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white"
+                      >
+                        Lihat Detail
+                      </button>
 
-                    {isAdminLoggedIn ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {updateStatusOptions.map((statusOption) => {
-                          const itemKey = getPengajuanKey(item);
-                          const activeUpdate = updatingStatusMap[itemKey];
-                          const isUpdating =
-                            activeUpdate === statusOption.value;
-                          const isDisabled = Boolean(activeUpdate);
-                          const isActive =
-                            item.status.toLowerCase() === statusOption.value;
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleStatusUpdate(item, "diproses")
+                        }
+                        className="inline-flex rounded-full bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white"
+                      >
+                        Diproses
+                      </button>
 
-                          return (
-                            <button
-                              key={statusOption.value}
-                              type="button"
-                              onClick={() =>
-                                handleStatusUpdate(item, statusOption.value)
-                              }
-                              disabled={isDisabled}
-                              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                                isActive
-                                  ? `${getStatusClassName(statusOption.value)} shadow-[0_10px_24px_rgba(15,23,42,0.08)]`
-                                  : "border border-slate-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                              }`}
-                            >
-                              {isUpdating ? (
-                                <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                              ) : null}
-                              <span>
-                                {isUpdating
-                                  ? "Menyimpan..."
-                                  : statusOption.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="mt-4 text-sm font-medium text-slate-500">
-                        Login admin diperlukan untuk memperbarui status
-                        pengajuan.
-                      </p>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleStatusUpdate(item, "selesai")
+                        }
+                        className="inline-flex rounded-full bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white"
+                      >
+                        Selesai
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePengajuan(item)}
+                        className="inline-flex rounded-full bg-red-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
+                      >
+                        Hapus Pengajuan
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex shrink-0">
@@ -429,106 +425,6 @@ export default function StatusPage() {
             ))
           : null}
       </section>
-
-      {selectedPengajuan ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/28 px-4 py-8 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-white/80 bg-white p-7 shadow-[0_24px_70px_rgba(15,23,42,0.18)] sm:p-8">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-primary)]">
-                  Detail Pengajuan
-                </span>
-                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
-                  {selectedPengajuan.jenis_surat}
-                </h2>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedPengajuan(null)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Tutup detail pengajuan"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                >
-                  <path d="M6 6 18 18" />
-                  <path d="M18 6 6 18" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Nama
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">
-                  {selectedPengajuan.nama}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  NIK
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">
-                  {selectedPengajuan.nik}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Tanggal Pengajuan
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">
-                  {formatTanggal(selectedPengajuan.created_at)}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Status
-                </p>
-                <div className="mt-2">
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1.5 text-sm font-bold ${getStatusClassName(
-                      selectedPengajuan.status,
-                    )}`}
-                  >
-                    {getStatusLabel(selectedPengajuan.status)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-[1.5rem] bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                Alamat
-              </p>
-              <p className="mt-2 text-base leading-7 text-slate-700">
-                {selectedPengajuan.alamat}
-              </p>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedPengajuan(null)}
-                className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
