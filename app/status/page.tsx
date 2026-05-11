@@ -271,61 +271,6 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
     }
   }
 
-  async function handleDeletePengajuan(item: PengajuanSurat) {
-    const confirmDelete = window.confirm(
-      "Yakin ingin menghapus pengajuan ini?",
-    );
-
-    if (!confirmDelete) {
-      return;
-    }
-
-    const previousData = dataPengajuan;
-
-    setDataPengajuan((current) =>
-      current.filter(
-        (pengajuan) =>
-          getPengajuanKey(pengajuan) !== getPengajuanKey(item),
-      ),
-    );
-
-    try {
-      const supabase = getSupabaseClient();
-
-      let query = supabase
-        .from("pengajuan_surat")
-        .delete()
-        .eq("nik", item.nik)
-        .eq("jenis_surat", item.jenis_surat);
-
-      if (item.created_at) {
-        query = query.eq("created_at", item.created_at);
-      }
-
-      const { error } = await query;
-
-      if (error) {
-        throw error;
-      }
-
-      showToast(
-        "success",
-        "Berhasil dihapus",
-        "Pengajuan berhasil dihapus.",
-      );
-    } catch (error) {
-      setDataPengajuan(previousData);
-
-      showToast(
-        "error",
-        "Gagal menghapus",
-        error instanceof Error
-          ? error.message
-          : "Terjadi kesalahan saat menghapus.",
-      );
-    }
-  }
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -562,6 +507,7 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
                         pengajuan.
                       </p>
                     )}
+                    </div>
                   </div>
 
                   <div className="flex shrink-0">
