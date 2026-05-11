@@ -19,20 +19,6 @@ export default async function Loading() {
           <div className="mx-auto mt-2 h-5 w-3/4 rounded-full bg-slate-200/70" />
           <div className="mx-auto mt-4 h-14 w-full rounded-2xl bg-slate-100" />
         </div>
-
-        <div className="mt-8 space-y-5">
-          <div>
-            <div className="mb-2 h-4 w-24 rounded-full bg-slate-200/80" />
-            <div className="h-14 w-full rounded-2xl bg-slate-100" />
-          </div>
-
-          <div>
-            <div className="mb-2 h-4 w-24 rounded-full bg-slate-200/80" />
-            <div className="h-14 w-full rounded-2xl bg-slate-100" />
-          </div>
-
-          <div className="h-12 w-full rounded-full bg-[var(--color-accent)]/20" />
-        </div>
       </div>
     </section>
   );
