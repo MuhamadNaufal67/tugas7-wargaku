@@ -1,32 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ToastContainer } from "@/components/Toast";
+import { LetterTemplatePreview } from "@/components/pdf/LetterTemplatePreview";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
-import { getSupabaseClient } from "@/lib/supabaseClient";
-
-type PengajuanSurat = {
-  alamat: string;
-  created_at: string | null;
-  jenis_surat: string;
-  nama: string;
-  nik: string;
-  status: string;
-};
+import { createNotification } from "@/lib/notifications";
+import {
+  downloadSubmissionPdf,
+  generateLetterFileName,
+  prepareSubmissionPdf,
+} from "@/lib/pengajuan";
+import { logAuthWarning } from "@/lib/supabaseAuthErrors";
+import type { PengajuanRow } from "@/lib/supabaseClient";
 
 type StatusFilter = "semua" | "pending" | "diproses" | "selesai" | "ditolak";
-type UpdatableStatus = "pending" | "diproses" | "selesai";
+type UpdatableStatus = "pending" | "diproses" | "selesai" | "ditolak";
 
 const statusStyles = {
-  pending: "bg-yellow-100 text-yellow-700",
-  diproses: "bg-blue-100 text-blue-700",
-  selesai: "bg-emerald-100 text-emerald-700",
-  diterima: "bg-emerald-100 text-emerald-700",
-  ditolak: "bg-red-100 text-red-700",
+  pending: "border border-amber-200 bg-amber-100 text-amber-700",
+  diproses: "border border-blue-200 bg-blue-100 text-blue-700",
+  selesai: "border border-emerald-200 bg-emerald-100 text-emerald-700",
+  diterima: "border border-emerald-200 bg-emerald-100 text-emerald-700",
+  ditolak: "border border-red-200 bg-red-100 text-red-700",
 } as const;
 
-const filterOptions: { value: StatusFilter; label: string }[] = [
+const filterOptions: Array<{ label: string; value: StatusFilter }> = [
   { value: "semua", label: "Semua" },
   { value: "pending", label: "Pending" },
   { value: "diproses", label: "Diproses" },
@@ -34,14 +34,18 @@ const filterOptions: { value: StatusFilter; label: string }[] = [
   { value: "ditolak", label: "Ditolak" },
 ];
 
-const updateStatusOptions: { value: UpdatableStatus; label: string }[] = [
+const updateStatusOptions: Array<{ label: string; value: UpdatableStatus }> = [
   { value: "pending", label: "Pending" },
   { value: "diproses", label: "Diproses" },
   { value: "selesai", label: "Selesai" },
+  { value: "ditolak", label: "Tolak" },
 ];
 
 function formatTanggal(createdAt: string | null) {
-  if (!createdAt) return "-";
+  if (!createdAt) {
+    return "-";
+  }
+
   return new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
     month: "long",
@@ -51,84 +55,140 @@ function formatTanggal(createdAt: string | null) {
 
 function getStatusClassName(status: string) {
   const normalizedStatus = status.toLowerCase() as keyof typeof statusStyles;
-  return statusStyles[normalizedStatus] ?? "bg-slate-100 text-slate-700";
+  return (
+    statusStyles[normalizedStatus] ??
+    "border border-slate-200 bg-slate-100 text-slate-700"
+  );
 }
 
 function getStatusLabel(status: string) {
   const normalizedStatus = status.toLowerCase();
+
   if (normalizedStatus === "pending") return "Pending";
   if (normalizedStatus === "diproses") return "Diproses";
   if (normalizedStatus === "selesai") return "Selesai";
   if (normalizedStatus === "diterima") return "Diterima";
   if (normalizedStatus === "ditolak") return "Ditolak";
+
   return status;
 }
 
-function getPengajuanKey(
-  item: Pick<PengajuanSurat, "nik" | "created_at" | "jenis_surat">,
-) {
-  return `${item.nik}-${item.created_at ?? "tanpa-tanggal"}-${item.jenis_surat}`;
+function isDownloadReady(status: string) {
+  const normalizedStatus = status.toLowerCase();
+  return normalizedStatus === "selesai" || normalizedStatus === "diterima";
 }
 
 export default function StatusPage() {
   const router = useRouter();
-  const [dataPengajuan, setDataPengajuan] = useState<PengajuanSurat[]>([]);
+  const searchParams = useSearchParams();
+  const { isAdmin, isAuthenticated, isLoading: isAuthLoading, supabase, user } =
+    useAuth();
+  const { toasts, showToast, dismiss } = useToast();
+
+  const [dataPengajuan, setDataPengajuan] = useState<PengajuanRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("semua");
-  const [searchQuery, setSearchQuery] = useState(""); // ← BARU: state search
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedPengajuan, setSelectedPengajuan] =
-    useState<PengajuanSurat | null>(null);
+    useState<PengajuanRow | null>(null);
+  const [updatingStatusMap, setUpdatingStatusMap] = useState<
+    Record<number, UpdatableStatus | undefined>
+  >({});
+  const [rejectTarget, setRejectTarget] = useState<PengajuanRow | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [recentPdfMessage, setRecentPdfMessage] = useState("");
 
-const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, UpdatableStatus | undefined>>({});
-
-  const [isAdminLoggedIn] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return document.cookie
-      .split("; ")
-      .some((cookie) => cookie === "isLoggedIn=true");
-  });
-
-  const { toasts, showToast, dismiss } = useToast();
-
-  function handleLogout() {
-    document.cookie = "isLoggedIn=; path=/; max-age=0; samesite=lax";
-    router.replace("/login");
-    router.refresh();
-  }
+  const highlightedPengajuanId = Number(searchParams.get("highlight"));
 
   useEffect(() => {
-    async function fetchPengajuanSurat() {
-      setIsLoading(true);
-      setErrorMessage("");
-      try {
-        const supabase = getSupabaseClient();
-
-        // Ambil semua data pengajuan surat dari Supabase dan urutkan dari terbaru.
-        const { data, error } = await supabase
-          .from("pengajuan_surat")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (error) throw error;
-        setDataPengajuan((data ?? []) as PengajuanSurat[]);
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Gagal mengambil data pengajuan.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
+    if (!isAuthLoading && !isAuthenticated) {
+      router.replace("/login?redirect=/status");
     }
-    fetchPengajuanSurat();
-  }, []);
+  }, [isAuthenticated, isAuthLoading, router]);
 
-  // ← BARU: filter status + search digabung
+  const fetchPengajuanSurat = useCallback(async () => {
+    if (!user) {
+      setDataPengajuan([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      let query = supabase
+        .from("pengajuan_surat")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      setDataPengajuan(data ?? []);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Gagal mengambil data pengajuan.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAdmin, supabase, user]);
+
+  useEffect(() => {
+    if (isAuthLoading || !user) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void fetchPengajuanSurat();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchPengajuanSurat, isAuthLoading, user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const channelName = isAdmin
+      ? "status-page:pengajuan:admin"
+      : `status-page:pengajuan:${user.id}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pengajuan_surat",
+        },
+        () => {
+          void fetchPengajuanSurat();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchPengajuanSurat, isAdmin, supabase, user]);
+
   const filteredPengajuan = dataPengajuan.filter((item) => {
     const normalizedStatus = item.status.toLowerCase();
-
-    const lolosFilter =
+    const matchesFilter =
       activeFilter === "semua"
         ? true
         : activeFilter === "selesai"
@@ -136,73 +196,174 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
           : normalizedStatus === activeFilter;
 
     const keyword = searchQuery.toLowerCase().trim();
-    const lolosSearch =
+    const matchesSearch =
       keyword === "" ||
       item.nama.toLowerCase().includes(keyword) ||
       item.nik.toLowerCase().includes(keyword) ||
       item.jenis_surat.toLowerCase().includes(keyword) ||
       item.alamat.toLowerCase().includes(keyword);
 
-    return lolosFilter && lolosSearch;
+    return matchesFilter && matchesSearch;
   });
 
+  const highlightedPengajuan =
+    Number.isFinite(highlightedPengajuanId) && highlightedPengajuanId > 0
+      ? dataPengajuan.find((item) => item.id === highlightedPengajuanId) ?? null
+      : null;
+  const activeSelectedPengajuan = selectedPengajuan ?? highlightedPengajuan;
+
   async function handleStatusUpdate(
-    item: PengajuanSurat,
+    item: PengajuanRow,
     nextStatus: UpdatableStatus,
+    options?: {
+      alasanPenolakan?: string | null;
+      fileSurat?: string | null;
+    },
   ) {
-    if (!isAdminLoggedIn) {
+    if (!isAdmin || !user) {
       showToast(
         "warning",
         "Akses terbatas",
-        "Silakan login sebagai admin untuk memperbarui status.",
+        "Hanya admin yang dapat memperbarui status pengajuan.",
       );
       return;
     }
 
-    const itemKey = getPengajuanKey(item);
-    const previousStatus = item.status;
+    const previousItem = item;
+    let nextFileSurat =
+      options?.fileSurat ??
+      (nextStatus === "selesai"
+        ? item.file_surat || generateLetterFileName(item)
+        : item.file_surat);
+    let generatedPdfMessage = "";
 
-    if (previousStatus.toLowerCase() === nextStatus) return;
+    if (nextStatus === "selesai") {
+      const preparedPdf = prepareSubmissionPdf(item);
+      nextFileSurat = options?.fileSurat ?? preparedPdf.fileName;
+      generatedPdfMessage = `${preparedPdf.template.title} berhasil dibuat dengan nomor ${preparedPdf.nomorSurat}.`;
+    }
 
-    setUpdatingStatusMap((current) => ({ ...current, [itemKey]: nextStatus }));
+    if (
+      previousItem.status.toLowerCase() === nextStatus &&
+      previousItem.alasan_penolakan ===
+        (options?.alasanPenolakan ?? previousItem.alasan_penolakan) &&
+      previousItem.file_surat === nextFileSurat
+    ) {
+      return;
+    }
+
+    setUpdatingStatusMap((current) => ({ ...current, [item.id]: nextStatus }));
 
     setDataPengajuan((current) =>
       current.map((pengajuan) =>
-        getPengajuanKey(pengajuan) === itemKey
-          ? { ...pengajuan, status: nextStatus }
+        pengajuan.id === item.id
+          ? {
+              ...pengajuan,
+              alasan_penolakan:
+                options?.alasanPenolakan ?? pengajuan.alasan_penolakan,
+              file_surat: nextFileSurat,
+              status: nextStatus,
+            }
           : pengajuan,
       ),
     );
 
+    if (selectedPengajuan?.id === item.id) {
+      setSelectedPengajuan((current) =>
+        current
+          ? {
+              ...current,
+              alasan_penolakan:
+                options?.alasanPenolakan ?? current.alasan_penolakan,
+              file_surat: nextFileSurat,
+              status: nextStatus,
+            }
+          : current,
+      );
+    }
+
     try {
-      const supabase = getSupabaseClient();
-
-      let query = supabase
+      const { error } = await supabase
         .from("pengajuan_surat")
-        .update({ status: nextStatus })
-        .eq("nik", item.nik)
-        .eq("jenis_surat", item.jenis_surat);
+        .update({
+          alasan_penolakan:
+            options?.alasanPenolakan === undefined
+              ? nextStatus === "ditolak"
+                ? item.alasan_penolakan
+                : null
+              : options.alasanPenolakan,
+          file_surat: nextFileSurat,
+          status: nextStatus,
+        })
+        .eq("id", item.id);
 
-      if (item.created_at) {
-        query = query.eq("created_at", item.created_at);
+      if (error) {
+        throw error;
       }
 
-      const { error } = await query;
-      if (error) throw error;
+      if (item.user_id) {
+        const notificationTitle =
+          nextStatus === "ditolak"
+            ? "Pengajuan ditolak"
+            : nextStatus === "selesai"
+              ? "Surat siap diunduh"
+              : "Status pengajuan diperbarui";
+
+        const notificationMessage =
+          nextStatus === "ditolak"
+            ? `Pengajuan ${item.jenis_surat} ditolak. Alasan: ${options?.alasanPenolakan ?? "Tidak ada alasan."}`
+            : nextStatus === "selesai"
+              ? `Pengajuan ${item.jenis_surat} telah selesai dan surat dapat diunduh.`
+              : `Status pengajuan ${item.jenis_surat} diubah menjadi ${getStatusLabel(nextStatus)}.`;
+
+        try {
+          await createNotification({
+            message: notificationMessage,
+            metadata: {
+              pengajuan_id: item.id,
+              status: nextStatus,
+            },
+            title: notificationTitle,
+            type: nextStatus,
+            userId: item.user_id,
+          });
+        } catch (notificationError) {
+          logAuthWarning("status notification skipped", notificationError, {
+            pengajuan_id: item.id,
+            status: nextStatus,
+            user_id: item.user_id,
+          });
+          showToast(
+            "warning",
+            "Status tersimpan",
+            "Status berhasil diperbarui, tetapi notifikasi gagal dikirim.",
+          );
+        }
+      }
+
+      if (nextStatus === "selesai") {
+        setRecentPdfMessage(generatedPdfMessage);
+      } else {
+        setRecentPdfMessage("");
+      }
 
       showToast(
         "success",
         "Status diperbarui",
-        `Status berhasil diubah ke ${getStatusLabel(nextStatus)}.`,
+        nextStatus === "selesai" && generatedPdfMessage
+          ? `Status berhasil diubah ke ${getStatusLabel(nextStatus)}. ${generatedPdfMessage}`
+          : `Status berhasil diubah ke ${getStatusLabel(nextStatus)}.`,
       );
     } catch (error) {
       setDataPengajuan((current) =>
         current.map((pengajuan) =>
-          getPengajuanKey(pengajuan) === itemKey
-            ? { ...pengajuan, status: previousStatus }
-            : pengajuan,
+          pengajuan.id === item.id ? previousItem : pengajuan,
         ),
       );
+
+      if (selectedPengajuan?.id === item.id) {
+        setSelectedPengajuan(previousItem);
+      }
 
       showToast(
         "error",
@@ -212,11 +373,15 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
           : "Terjadi kesalahan saat memperbarui status.",
       );
     } finally {
-      setUpdatingStatusMap((current) => ({ ...current, [itemKey]: undefined }));
+      setUpdatingStatusMap((current) => ({ ...current, [item.id]: undefined }));
     }
   }
 
-  async function handleDeletePengajuan(item: PengajuanSurat) {
+  async function handleDeletePengajuan(item: PengajuanRow) {
+    if (!isAdmin) {
+      return;
+    }
+
     const confirmDelete = window.confirm(
       "Yakin ingin menghapus pengajuan ini?",
     );
@@ -228,26 +393,18 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
     const previousData = dataPengajuan;
 
     setDataPengajuan((current) =>
-      current.filter(
-        (pengajuan) =>
-          getPengajuanKey(pengajuan) !== getPengajuanKey(item),
-      ),
+      current.filter((pengajuan) => pengajuan.id !== item.id),
     );
 
-    try {
-      const supabase = getSupabaseClient();
+    if (selectedPengajuan?.id === item.id) {
+      setSelectedPengajuan(null);
+    }
 
-      let query = supabase
+    try {
+      const { error } = await supabase
         .from("pengajuan_surat")
         .delete()
-        .eq("nik", item.nik)
-        .eq("jenis_surat", item.jenis_surat);
-
-      if (item.created_at) {
-        query = query.eq("created_at", item.created_at);
-      }
-
-      const { error } = await query;
+        .eq("id", item.id);
 
       if (error) {
         throw error;
@@ -260,7 +417,6 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
       );
     } catch (error) {
       setDataPengajuan(previousData);
-
       showToast(
         "error",
         "Gagal menghapus",
@@ -271,41 +427,112 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
     }
   }
 
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <section className="rounded-[2.5rem] border border-white/80 bg-white/95 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:p-10">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)]">
-              Status Pengajuan
-            </span>
+  function startRejectFlow(item: PengajuanRow) {
+    setRejectTarget(item);
+    setRejectReason(item.alasan_penolakan ?? "");
+  }
 
-            <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
-              Pantau progres pengajuan surat warga secara real-time.
-            </h1>
+  async function confirmReject() {
+    if (!rejectTarget) {
+      return;
+    }
+
+    const trimmedReason = rejectReason.trim();
+
+    if (!trimmedReason) {
+      showToast(
+        "warning",
+        "Alasan wajib diisi",
+        "Isi alasan penolakan sebelum mengubah status menjadi ditolak.",
+      );
+      return;
+    }
+
+    await handleStatusUpdate(rejectTarget, "ditolak", {
+      alasanPenolakan: trimmedReason,
+      fileSurat: null,
+    });
+
+    setRejectTarget(null);
+    setRejectReason("");
+  }
+
+  function handleDownload(item: PengajuanRow) {
+    downloadSubmissionPdf(item);
+    showToast("success", "Download dimulai", "PDF surat berhasil diunduh.");
+  }
+
+  function handleReapply(item: PengajuanRow) {
+    sessionStorage.setItem(
+      "wargaku-reapply-draft",
+      JSON.stringify({
+        alamat: item.alamat,
+        id: item.id,
+        jenis_surat: item.jenis_surat,
+        nama: item.nama,
+        nik: item.nik,
+      }),
+    );
+
+    router.push("/ajukan-surat?reapply=1");
+  }
+
+  function closeSelectedPengajuan() {
+    setSelectedPengajuan(null);
+    setRecentPdfMessage("");
+
+    if (searchParams.get("highlight")) {
+      router.replace("/status", { scroll: false });
+    }
+  }
+
+  if (isAuthLoading || (!isAuthenticated && typeof window !== "undefined")) {
+    return (
+      <div className="rounded-[1.8rem] border border-white/80 bg-white/95 p-5 shadow-sm sm:p-7">
+        <div className="animate-pulse space-y-5">
+          <div className="h-6 w-40 rounded-full bg-slate-200" />
+          <div className="h-12 rounded-[1.2rem] bg-slate-100" />
+          <div className="flex gap-2">
+            <div className="h-9 w-24 rounded-full bg-slate-100" />
+            <div className="h-9 w-24 rounded-full bg-slate-100" />
+            <div className="h-9 w-24 rounded-full bg-slate-100" />
           </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="h-52 rounded-[1.6rem] bg-slate-100" />
+            <div className="h-52 rounded-[1.6rem] bg-slate-100" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-          {isAdminLoggedIn ? (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex shrink-0 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700"
-            >
-              Logout Admin
-            </button>
-          ) : null}
+  return (
+    <div className="space-y-5 sm:space-y-6">
+      <section className="rounded-[1.9rem] border border-white/80 bg-white/95 p-5 shadow-sm sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-primary)]">
+              {isAdmin ? "Panel Admin" : "Status Pengajuan"}
+            </span>
+            <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl lg:text-4xl">
+              {isAdmin
+                ? "Kelola seluruh pengajuan surat warga dari satu halaman."
+                : "Pantau progres pengajuan surat Anda secara real-time."}
+            </h1>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500 sm:text-base">
+              Halaman ini menggabungkan pemantauan status, aksi admin, preview
+              template surat resmi, dan update realtime dari data pengajuan.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section className="space-y-5">
-
-        {/* ← BARU: Search Bar */}
+      <section className="space-y-4">
         <div className="relative">
           <svg
             aria-hidden="true"
             viewBox="0 0 24 24"
-            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
+            className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-slate-400"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
@@ -315,19 +542,20 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.35-4.35" />
           </svg>
+
           <input
             type="text"
             placeholder="Cari nama, NIK, jenis surat, atau alamat..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-12 pr-4 text-base text-slate-700 shadow-[0_10px_24px_rgba(15,23,42,0.04)] outline-none placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)]"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="w-full rounded-[1.15rem] border border-slate-200 bg-white py-3 pl-10 pr-10 text-sm text-slate-700 shadow-sm outline-none placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-soft)]"
           />
-          {/* Tombol hapus search */}
+
           {searchQuery ? (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               aria-label="Hapus pencarian"
             >
               <svg
@@ -345,19 +573,19 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
           ) : null}
         </div>
 
-        {/* Filter Status */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
           {filterOptions.map((filter) => {
             const isActive = activeFilter === filter.value;
+
             return (
               <button
                 key={filter.value}
                 type="button"
                 onClick={() => setActiveFilter(filter.value)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                   isActive
-                    ? "bg-[var(--color-primary)] text-white"
-                    : "bg-white text-slate-600"
+                    ? "bg-[var(--color-primary)] text-white shadow-sm"
+                    : "border border-slate-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                 }`}
               >
                 {filter.label}
@@ -366,18 +594,17 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
           })}
         </div>
 
-        {/* Info jumlah hasil */}
         {!isLoading && !errorMessage ? (
           <p className="text-sm text-slate-500">
             Menampilkan{" "}
-            <span className="font-semibold text-slate-700">
+            <span className="font-semibold text-[var(--color-primary)]">
               {filteredPengajuan.length}
             </span>{" "}
             pengajuan
             {searchQuery ? (
               <>
-                {" "}untuk kata kunci{" "}
-                <span className="font-semibold text-[var(--color-primary)]">
+                {" "}untuk{" "}
+                <span className="font-semibold text-slate-700">
                   &quot;{searchQuery}&quot;
                 </span>
               </>
@@ -385,48 +612,68 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
           </p>
         ) : null}
 
-        {/* Loading */}
         {isLoading ? (
-          <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-base font-medium text-slate-500">
-            Loading...
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="h-56 animate-pulse rounded-[1.6rem] bg-slate-100" />
+            <div className="h-56 animate-pulse rounded-[1.6rem] bg-slate-100" />
           </div>
         ) : null}
 
-        {/* Error */}
         {!isLoading && errorMessage ? (
-          <div className="rounded-[2rem] border border-red-200 bg-red-50 px-6 py-8 text-base text-red-600 shadow-[0_14px_35px_rgba(239,68,68,0.08)]">
+          <div className="rounded-[1.3rem] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
           </div>
         ) : null}
 
-        {/* Kosong */}
         {!isLoading && !errorMessage && filteredPengajuan.length === 0 ? (
-          <div className="rounded-[2rem] border border-slate-200 bg-white px-6 py-8 text-base font-medium text-slate-500 shadow-[0_14px_35px_rgba(15,23,42,0.05)]">
-            {searchQuery
-              ? `Tidak ada hasil untuk "${searchQuery}"`
-              : "Belum ada pengajuan"}
+          <div className="rounded-[1.7rem] border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <p className="text-base font-semibold text-slate-900">
+              {searchQuery ? "Tidak ada hasil yang cocok" : "Belum ada pengajuan"}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              {searchQuery
+                ? `Coba kata kunci lain untuk "${searchQuery}".`
+                : isAdmin
+                  ? "Pengajuan warga akan muncul di sini setelah user mengirim form."
+                  : "Ajukan surat pertama Anda untuk mulai memantau statusnya."}
+            </p>
           </div>
         ) : null}
 
-        {/* List Pengajuan */}
-        {!isLoading && !errorMessage
-          ? filteredPengajuan.map((item) => (
-              <article
-                key={getPengajuanKey(item)}
-                className="rounded-[2rem] border border-slate-200 bg-white p-6"
-              >
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-3xl">
-                    <h2 className="text-2xl font-bold text-slate-950">
-                      {item.jenis_surat}
-                    </h2>
+        {!isLoading && !errorMessage ? (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {filteredPengajuan.map((item) => {
+              const itemUpdatingStatus = updatingStatusMap[item.id];
 
-                    <p className="mt-2 text-sm text-slate-500">
-                      Diajukan {formatTanggal(item.created_at)}
-                    </p>
+              return (
+                <article
+                  key={item.id}
+                  className={`rounded-[1.7rem] border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+                    item.id === highlightedPengajuanId
+                      ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary-soft)]"
+                      : "border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-lg font-bold text-slate-900">
+                        {item.jenis_surat}
+                      </h2>
+                      <p className="mt-0.5 text-xs text-slate-400">
+                        Diajukan {formatTanggal(item.created_at)}
+                      </p>
+                    </div>
 
-                    <div className="mt-5 flex items-center gap-3">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${getStatusClassName(item.status)}`}
+                    >
+                      {getStatusLabel(item.status)}
+                    </span>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                         <svg
                           aria-hidden="true"
                           viewBox="0 0 24 24"
@@ -441,105 +688,148 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
                           <circle cx="12" cy="7" r="4" />
                         </svg>
                       </span>
-                      <div>
-                        <p className="text-lg font-bold text-slate-900">
+
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">
                           {item.nama}
                         </p>
-                        <p className="text-sm text-slate-500">
-                          NIK {item.nik}
-                        </p>
+                        <p className="text-xs text-slate-400">NIK {item.nik}</p>
                       </div>
                     </div>
 
-                    <p className="mt-4 text-base text-slate-600">
+                    <p className="mt-3 text-sm leading-relaxed text-slate-500">
                       {item.alamat}
                     </p>
 
-                    <div className="mt-5 flex flex-wrap gap-3">
+                    {item.status.toLowerCase() === "ditolak" &&
+                    item.alasan_penolakan ? (
+                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <span className="font-semibold">Alasan penolakan:</span>{" "}
+                        {item.alasan_penolakan}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="border-t border-slate-100 px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <button
                         type="button"
-                        onClick={() => setSelectedPengajuan(item)}
-                        className="inline-flex rounded-full bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white"
+                        onClick={() => {
+                          setRecentPdfMessage("");
+                          setSelectedPengajuan(item);
+                        }}
+                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full bg-[var(--color-primary)] px-4 py-2.5 text-xs font-semibold text-white transition hover:opacity-90"
                       >
                         Lihat Detail
                       </button>
 
-                    {isAdminLoggedIn ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {updateStatusOptions.map((statusOption) => {
-                          const itemKey = getPengajuanKey(item);
-                          const activeUpdate = updatingStatusMap[itemKey];
-                          const isUpdating =
-                            activeUpdate === statusOption.value;
-                          const isDisabled = Boolean(activeUpdate);
-                          const isActive =
-                            item.status.toLowerCase() === statusOption.value;
+                      {isDownloadReady(item.status) ? (
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(item)}
+                          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          Download Surat
+                        </button>
+                      ) : null}
 
-                          return (
-                            <button
-                              key={statusOption.value}
-                              type="button"
-                              onClick={() =>
-                                handleStatusUpdate(item, statusOption.value)
-                              }
-                              disabled={isDisabled}
-                              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                                isActive
-                                  ? `${getStatusClassName(statusOption.value)} shadow-[0_10px_24px_rgba(15,23,42,0.08)]`
-                                  : "border border-slate-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                              }`}
-                            >
-                              {isUpdating ? (
-                                <span className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                              ) : null}
-                              <span>
+                      {!isAdmin && item.status.toLowerCase() === "ditolak" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleReapply(item)}
+                          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+                        >
+                          Ajukan Ulang
+                        </button>
+                      ) : null}
+
+                      {isAdmin ? (
+                        <>
+                          {updateStatusOptions.map((statusOption) => {
+                            const isUpdating =
+                              itemUpdatingStatus === statusOption.value;
+                            const isDisabled = Boolean(itemUpdatingStatus);
+                            const isActive =
+                              item.status.toLowerCase() === statusOption.value;
+
+                            return (
+                              <button
+                                key={statusOption.value}
+                                type="button"
+                                onClick={() => {
+                                  if (statusOption.value === "ditolak") {
+                                    startRejectFlow(item);
+                                    return;
+                                  }
+
+                                  void handleStatusUpdate(
+                                    item,
+                                    statusOption.value,
+                                  );
+                                }}
+                                disabled={isDisabled}
+                                className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full px-3.5 py-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                  isActive
+                                    ? getStatusClassName(statusOption.value)
+                                    : "border border-slate-200 bg-white text-slate-600 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                                }`}
+                              >
+                                {isUpdating ? (
+                                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                ) : null}
                                 {isUpdating
                                   ? "Menyimpan..."
                                   : statusOption.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="mt-4 text-sm font-medium text-slate-500">
-                        Login admin diperlukan untuk memperbarui status
-                        pengajuan.
-                      </p>
-                    )}
+                              </button>
+                            );
+                          })}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePengajuan(item)}
+                            className="ml-auto inline-flex min-h-10 items-center justify-center rounded-full border border-red-200 px-3.5 py-2.5 text-xs font-semibold text-red-500 transition hover:bg-red-50"
+                          >
+                            Hapus
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          Data ini hanya bisa dilihat oleh akun Anda.
+                        </span>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex shrink-0">
-                    <span
-                      className={`inline-flex rounded-full px-4 py-2 text-sm font-bold ${getStatusClassName(item.status)}`}
-                    >
-                      {getStatusLabel(item.status)}
-                    </span>
-                  </div>
-                </div>
-              </article>
-            ))
-          : null}
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
       </section>
 
-      {selectedPengajuan ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/28 px-4 py-8 backdrop-blur-[2px]">
-          <div className="w-full max-w-2xl rounded-[2rem] border border-white/80 bg-white p-7 shadow-[0_24px_70px_rgba(15,23,42,0.18)] sm:p-8">
-            <div className="flex items-start justify-between gap-4">
+      {activeSelectedPengajuan ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm sm:items-center"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeSelectedPengajuan();
+            }
+          }}
+        >
+          <div className="w-full max-w-xl rounded-[1.8rem] border border-white/80 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
               <div>
-                <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-primary)]">
+                <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">
                   Detail Pengajuan
                 </span>
-                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
-                  {selectedPengajuan.jenis_surat}
+                <h2 className="mt-2 text-xl font-extrabold tracking-tight text-slate-950">
+                  {activeSelectedPengajuan.jenis_surat}
                 </h2>
               </div>
 
               <button
                 type="button"
-                onClick={() => setSelectedPengajuan(null)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                onClick={closeSelectedPengajuan}
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Tutup detail pengajuan"
               >
                 <svg
@@ -557,66 +847,185 @@ const [updatingStatusMap, setUpdatingStatusMap] = useState<Record<string, Updata
               </button>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Nama
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">
-                  {selectedPengajuan.nama}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  NIK
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">
-                  {selectedPengajuan.nik}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Tanggal Pengajuan
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900">
-                  {formatTanggal(selectedPengajuan.created_at)}
-                </p>
-              </div>
-
-              <div className="rounded-[1.5rem] bg-slate-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Status
-                </p>
-                <div className="mt-2">
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1.5 text-sm font-bold ${getStatusClassName(
-                      selectedPengajuan.status,
-                    )}`}
+            <div className="max-h-[75vh] overflow-y-auto p-5 sm:p-6">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { label: "Nama", value: activeSelectedPengajuan.nama },
+                  { label: "NIK", value: activeSelectedPengajuan.nik },
+                  {
+                    label: "Tanggal Pengajuan",
+                    value: formatTanggal(activeSelectedPengajuan.created_at),
+                  },
+                ].map((field) => (
+                  <div
+                    key={field.label}
+                    className="rounded-xl bg-slate-50 p-3.5"
                   >
-                    {getStatusLabel(selectedPengajuan.status)}
-                  </span>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      {field.label}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {field.value}
+                    </p>
+                  </div>
+                ))}
+
+                <div className="rounded-xl bg-slate-50 p-3.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Status
+                  </p>
+                  <div className="mt-1.5">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getStatusClassName(
+                        activeSelectedPengajuan.status,
+                      )}`}
+                    >
+                      {getStatusLabel(activeSelectedPengajuan.status)}
+                    </span>
+                  </div>
                 </div>
               </div>
+
+              <div className="mt-3 rounded-xl bg-slate-50 p-3.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Alamat
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-slate-700">
+                  {activeSelectedPengajuan.alamat}
+                </p>
+              </div>
+
+              {activeSelectedPengajuan.alasan_penolakan ? (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-red-500">
+                    Alasan Penolakan
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-red-700">
+                    {activeSelectedPengajuan.alasan_penolakan}
+                  </p>
+                </div>
+              ) : null}
+
+              {isAdmin ? (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Preview Template Surat
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Template resmi dipakai otomatis saat status diubah ke
+                        selesai.
+                      </p>
+                    </div>
+                    {recentPdfMessage ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                        PDF siap
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <LetterTemplatePreview
+                    jenisSurat={activeSelectedPengajuan.jenis_surat}
+                    nomorSurat={
+                      prepareSubmissionPdf(activeSelectedPengajuan).nomorSurat
+                    }
+                  />
+
+                  {recentPdfMessage ? (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      {recentPdfMessage}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
-            <div className="mt-4 rounded-[1.5rem] bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-                Alamat
-              </p>
-              <p className="mt-2 text-base leading-7 text-slate-700">
-                {selectedPengajuan.alamat}
-              </p>
-            </div>
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              {isDownloadReady(activeSelectedPengajuan.status) ? (
+                <button
+                  type="button"
+                  onClick={() => handleDownload(activeSelectedPengajuan)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100"
+                >
+                  Download Surat
+                </button>
+              ) : null}
 
-            <div className="mt-6 flex justify-end">
+              {!isAdmin &&
+              activeSelectedPengajuan.status.toLowerCase() === "ditolak" ? (
+                <button
+                  type="button"
+                  onClick={() => handleReapply(activeSelectedPengajuan)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Ajukan Ulang
+                </button>
+              ) : null}
+
               <button
                 type="button"
-                onClick={() => setSelectedPengajuan(null)}
-                className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                onClick={closeSelectedPengajuan}
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {rejectTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 backdrop-blur-sm sm:items-center"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setRejectTarget(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-lg rounded-[1.8rem] border border-white/80 bg-white shadow-2xl">
+            <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+              <h2 className="text-lg font-bold text-slate-900">
+                Tolak Pengajuan
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Isi alasan penolakan untuk {rejectTarget.nama} sebelum status
+                diubah menjadi ditolak.
+              </p>
+            </div>
+
+            <div className="p-5 sm:p-6">
+              <label
+                htmlFor="rejectReason"
+                className="mb-2 block text-sm font-semibold text-slate-700"
+              >
+                Alasan Penolakan
+              </label>
+              <textarea
+                id="rejectReason"
+                rows={4}
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                placeholder="Tulis alasan penolakan agar user bisa memperbaiki pengajuan."
+              />
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+              <button
+                type="button"
+                onClick={() => setRejectTarget(null)}
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmReject()}
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Simpan Penolakan
               </button>
             </div>
           </div>

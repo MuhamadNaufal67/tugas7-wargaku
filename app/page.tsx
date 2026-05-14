@@ -25,6 +25,25 @@ const highlightPoints = [
   "Tampilan responsif untuk kebutuhan presentasi company profile",
 ];
 
+const workflowSteps = [
+  {
+    title: "User register atau login",
+    description: "Warga masuk dengan akun sendiri agar histori pengajuan dan notifikasi tetap personal.",
+  },
+  {
+    title: "Ajukan surat",
+    description: "Form pengajuan menyimpan data penting seperti nama, NIK, alamat, dan jenis surat.",
+  },
+  {
+    title: "Admin memproses status",
+    description: "Admin dapat memproses, menolak dengan alasan, atau menyelesaikan pengajuan dari panel kontrol.",
+  },
+  {
+    title: "Surat selesai diunduh",
+    description: "Jika selesai, user menerima notifikasi dan dapat mengunduh PDF surat yang siap cetak.",
+  },
+];
+
 const cardClassName =
   "flex h-full flex-col rounded-[1.75rem] border border-slate-200/80 bg-white/92 shadow-[0_16px_38px_rgba(15,23,42,0.06)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_52px_rgba(15,23,42,0.1)]";
 
@@ -172,6 +191,28 @@ export default function HomePage() {
               ekosistem.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        <div className="max-w-3xl">
+          <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+            Workflow Lengkap
+          </span>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
+            Alur aplikasi disusun untuk skenario administrasi warga yang nyata.
+          </h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {workflowSteps.map((step, index) => (
+            <article key={step.title} className={`${cardClassName} p-6`}>
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--color-primary-soft)] text-sm font-extrabold text-[var(--color-primary)]">
+                0{index + 1}
+              </span>
+              <h3 className="mt-4 text-lg font-extrabold text-slate-900">{step.title}</h3>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{step.description}</p>
+            </article>
+          ))}
         </div>
       </section>
     </div>

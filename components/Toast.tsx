@@ -113,15 +113,15 @@ export function ToastItem({
 
   return (
     <div
-      className={`relative w-full overflow-hidden rounded-[1.4rem] border bg-white/98 transition-all duration-300 ease-out ${currentStyle.border} ${currentStyle.ring} ${
+      className={`relative w-full overflow-hidden rounded-[1.5rem] border bg-white/98 transition-all duration-300 ease-out ${currentStyle.border} ${currentStyle.ring} ${
         visible
           ? "translate-y-0 scale-100 opacity-100"
           : "translate-y-2 scale-[0.98] opacity-0"
       }`}
     >
-      <div className="flex items-start gap-4 p-4">
+      <div className="flex items-start gap-3.5 p-4 sm:p-5">
         <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${currentStyle.iconBg}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${currentStyle.iconBg}`}
         >
           <ToastIcon type={type} />
         </div>
@@ -134,7 +134,7 @@ export function ToastItem({
               >
                 {currentStyle.label}
               </span>
-              <p className="mt-2 text-base font-bold leading-5 text-slate-900">
+              <p className="mt-2 text-[0.98rem] font-bold leading-5 text-slate-900">
                 {title}
               </p>
             </div>
@@ -181,7 +181,7 @@ export function ToastContainer({
   onDismiss: (id: number) => void;
 }) {
   return (
-    <div className="pointer-events-none fixed right-4 top-20 z-50 flex w-[calc(100%-2rem)] max-w-[24rem] flex-col gap-3 sm:right-6 sm:top-24 sm:w-full">
+    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col gap-3 sm:inset-x-auto sm:right-6 sm:top-24 sm:bottom-auto sm:w-full sm:max-w-[24rem]">
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
           <ToastItem {...toast} onDismiss={onDismiss} />

@@ -1,75 +1,98 @@
+import { Card, CardContent } from "@/components/ui/Card";
+
 const tujuanItems = [
-  "Memodernisasi layanan administrasi tingkat RT agar lebih cepat dan terdokumentasi.",
-  "Membantu RT beradaptasi dengan kebutuhan warga yang menginginkan proses praktis.",
-  "Memberikan akses informasi yang mudah bagi seluruh warga secara digital.",
+  "Memodernisasi layanan administrasi tingkat RT agar lebih cepat, terdokumentasi, dan mudah dipantau.",
+  "Mengurangi proses manual yang rawan antrean, salah catat, dan duplikasi pertanyaan dari warga.",
+  "Menyediakan pengalaman digital yang tetap sederhana untuk user, namun cukup kuat untuk admin.",
 ];
 
 const benefitItems = [
-  "Mempercepat proses administrasi RT tanpa antrean manual.",
-  "Mengurangi risiko data tercecer karena semua proses tercatat digital.",
-  "Meningkatkan transparansi layanan antara pengurus RT dan warga.",
+  "Pengajuan surat lebih tertib dari sisi data, status, dan histori perubahan.",
+  "Warga memperoleh transparansi progres layanan tanpa harus menunggu kabar manual.",
+  "Pengurus RT memiliki kontrol yang lebih rapi atas status, penolakan, notifikasi, dan penyelesaian surat.",
+];
+
+const values = [
+  {
+    title: "Rapi",
+    description: "Semua proses tersusun dari form, status, alasan penolakan, hingga download surat jadi.",
+  },
+  {
+    title: "Jelas",
+    description: "Setiap perubahan status disertai notifikasi dan jalur tindak lanjut yang mudah dipahami.",
+  },
+  {
+    title: "Siap Demo",
+    description: "Tampilan dan alur dibuat cukup realistis untuk presentasi, uji manual, dan deploy awal.",
+  },
 ];
 
 export default function AboutPage() {
   return (
-    <div className="space-y-8">
-
-     
-      <section className="rounded-[2.5rem] border border-white/80 bg-white/92 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:p-10">
+    <div className="space-y-6">
+      <section className="rounded-[2rem] border border-white/80 bg-white/92 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:p-8 lg:p-10">
         <span className="inline-flex rounded-full bg-[var(--color-primary-soft)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)]">
           Tentang WargaKu
         </span>
-        <h1 className="mt-5 max-w-3xl text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
-          Platform administrasi RT digital yang dibuat agar layanan warga lebih
-          cepat dan tertata.
+        <h1 className="mt-5 max-w-4xl text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
+          Platform administrasi RT digital yang dirancang agar layanan warga lebih cepat, transparan, dan siap tumbuh.
         </h1>
-        <p className="mt-6 max-w-4xl text-lg leading-8 text-slate-600">
-          WargaKu adalah aplikasi administrasi RT digital yang membantu proses
-          pengajuan surat, pemantauan status layanan, dan distribusi pengumuman
-          RT dalam satu sistem yang mudah digunakan. Tampilan dan alurnya
-          dirancang agar ramah untuk warga sekaligus efisien untuk pengurus.
+        <p className="mt-6 max-w-4xl text-base leading-8 text-slate-600 sm:text-lg">
+          WargaKu adalah aplikasi administrasi RT digital yang menyatukan auth, pengajuan surat,
+          pemantauan status, notifikasi, penolakan dengan alasan yang jelas, dan distribusi surat selesai
+          dalam satu pengalaman yang modern namun tetap mudah digunakan.
         </p>
       </section>
 
-     
-      <section className="grid gap-8 lg:grid-cols-2">
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardContent className="space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900">Tujuan</h2>
+            <div className="space-y-3">
+              {tujuanItems.map((item, index) => (
+                <article
+                  key={item}
+                  className="flex items-start gap-4 rounded-[1.4rem] border border-slate-200 bg-slate-50/80 p-4"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-primary-soft)] text-sm font-bold text-[var(--color-primary)]">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <p className="text-sm leading-7 text-slate-600 sm:text-base">{item}</p>
+                </article>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-    
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Tujuan</h2>
-          {tujuanItems.map((item, index) => (
-            <article
-              key={index}
-              className="flex w-full items-start gap-4 rounded-2xl border border-slate-200 bg-white px-6 py-5 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary-soft)] text-sm font-bold text-[var(--color-primary)]">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <div className="flex flex-col justify-center">
-                <p className="text-base leading-7 text-slate-600">{item}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900">Manfaat</h2>
+            <div className="space-y-3">
+              {benefitItems.map((item, index) => (
+                <article
+                  key={item}
+                  className="flex items-start gap-4 rounded-[1.4rem] border border-orange-100 bg-[linear-gradient(135deg,_#fff4ea_0%,_#ffffff_60%)] p-4"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-sm font-bold text-orange-500">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <p className="text-sm leading-7 text-slate-600 sm:text-base">{item}</p>
+                </article>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
-      
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Manfaat</h2>
-          {benefitItems.map((item, index) => (
-            <article
-              key={index}
-              className="flex w-full items-start gap-4 rounded-2xl border border-orange-100 bg-[linear-gradient(135deg,_#fff4ea_0%,_#ffffff_60%)] px-6 py-5 shadow-[0_8px_24px_rgba(255,138,61,0.08)]"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-sm font-bold text-orange-500">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <div className="flex flex-col justify-center">
-                <p className="text-base leading-7 text-slate-600">{item}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-
+      <section className="grid gap-4 md:grid-cols-3">
+        {values.map((item) => (
+          <Card key={item.title}>
+            <CardContent>
+              <p className="text-2xl font-extrabold text-slate-950">{item.title}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-500">{item.description}</p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
     </div>
   );

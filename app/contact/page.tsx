@@ -1,76 +1,193 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { ToastContainer } from "@/components/Toast";
+import { useToast } from "@/hooks/useToast";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+
+const infoCards = [
+  {
+    title: "Email Tim",
+    value: "halo@wargaku.id",
+    detail: "Untuk demo, kolaborasi, atau pertanyaan teknis.",
+  },
+  {
+    title: "Jam Respons",
+    value: "08.00 - 17.00 WIB",
+    detail: "Balasan prioritas untuk kebutuhan presentasi dan deploy.",
+  },
+  {
+    title: "Kanal RT",
+    value: "WhatsApp / Email",
+    detail: "Cocok untuk komunikasi cepat dengan pengurus lingkungan.",
+  },
+];
+
+const faqs = [
+  {
+    question: "Apakah WargaKu bisa dipakai untuk demo RT sungguhan?",
+    answer:
+      "Bisa. Alur auth, pengajuan surat, status, penolakan, notifikasi, dan download surat sudah disusun untuk presentasi end-to-end.",
+  },
+  {
+    question: "Apakah admin dan user punya dashboard berbeda?",
+    answer:
+      "Ya. Admin mengelola seluruh pengajuan dan aktivitas terbaru, sedangkan user fokus pada riwayat pengajuan, notifikasi, dan unduhan suratnya sendiri.",
+  },
+  {
+    question: "Bagaimana jika ingin lanjut ke production deployment?",
+    answer:
+      "Langkah berikutnya adalah mengunci policy Supabase, menyiapkan domain, dan jika perlu memindahkan PDF ke Supabase Storage.",
+  },
+];
+
 export default function ContactPage() {
+  const { toasts, showToast, dismiss } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    message: "",
+    name: "",
+  });
+
+  function updateField(key: "email" | "message" | "name", value: string) {
+    setFormData((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      showToast("warning", "Form belum lengkap", "Lengkapi nama, email, dan pesan terlebih dahulu.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const subject = encodeURIComponent(`Kontak WargaKu dari ${formData.name.trim()}`);
+    const body = encodeURIComponent(
+      `Nama: ${formData.name.trim()}\nEmail: ${formData.email.trim()}\n\nPesan:\n${formData.message.trim()}`,
+    );
+
+    window.location.href = `mailto:halo@wargaku.id?subject=${subject}&body=${body}`;
+
+    showToast(
+      "success",
+      "Pesan siap dikirim",
+      "Aplikasi email Anda akan terbuka untuk mengirim pesan ke tim WargaKu.",
+    );
+    setFormData({
+      email: "",
+      message: "",
+      name: "",
+    });
+    setIsSubmitting(false);
+  }
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-[2.25rem] bg-[linear-gradient(160deg,_#1f6ba5_0%,_#2d81c1_55%,_#69addf_100%)] p-8 text-white shadow-[0_20px_70px_rgba(31,107,165,0.24)] lg:p-10">
-        <span className="inline-flex rounded-full bg-white/16 px-4 py-2 text-sm font-semibold uppercase tracking-[0.16em] text-white/84">
-          Contact
-        </span>
-        <h1 className="mt-5 text-4xl font-extrabold tracking-tight sm:text-5xl">
-          Hubungi tim WargaKu.
-        </h1>
-        <p className="mt-6 max-w-xl text-lg leading-8 text-white/82">
-          Gunakan formulir di samping untuk mengirim pertanyaan, kerja sama,
-          atau kebutuhan presentasi terkait website company profile WargaKu.
-        </p>
+    <div className="space-y-6">
+      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <Card className="overflow-hidden bg-[linear-gradient(160deg,_#1f6ba5_0%,_#2d81c1_55%,_#69addf_100%)] text-white shadow-[0_20px_70px_rgba(31,107,165,0.24)]">
+          <CardContent className="space-y-5">
+            <span className="inline-flex rounded-full bg-white/16 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white/84">
+              Contact
+            </span>
+            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+              Hubungi tim WargaKu untuk demo, review, atau implementasi lanjutan.
+            </h1>
+            <p className="max-w-xl text-base leading-8 text-white/82 sm:text-lg">
+              Gunakan form di samping jika Anda ingin mendiskusikan kebutuhan
+              presentasi, deployment, atau adaptasi aplikasi ini untuk skenario RT/RW sungguhan.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <h2 className="text-2xl font-bold text-slate-900">Form Pesan</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-500">
+              Pesan akan diarahkan ke aplikasi email default Anda agar bisa langsung dikirim.
+            </p>
+            <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
+              <div>
+                <label htmlFor="name" className="mb-2 block text-sm font-semibold text-slate-700">
+                  Nama
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(event) => updateField("name", event.target.value)}
+                  placeholder="Masukkan nama Anda"
+                  className="w-full rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="mb-2 block text-sm font-semibold text-slate-700">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(event) => updateField("email", event.target.value)}
+                  placeholder="Masukkan email Anda"
+                  className="w-full rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="message" className="mb-2 block text-sm font-semibold text-slate-700">
+                  Pesan
+                </label>
+                <textarea
+                  id="message"
+                  name="message"
+                  rows={6}
+                  value={formData.message}
+                  onChange={(event) => updateField("message", event.target.value)}
+                  placeholder="Tulis pesan Anda"
+                  className="w-full rounded-[1.4rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
+                />
+              </div>
+
+              <Button type="submit" disabled={isSubmitting} variant="primary">
+                {isSubmitting ? "Memproses..." : "Kirim Pesan"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="rounded-[2.25rem] border border-white/80 bg-white/95 p-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:p-10">
-        <h2 className="text-2xl font-bold text-slate-900">Form Pesan</h2>
-        <form className="mt-6 space-y-5">
-          <div>
-            <label
-              htmlFor="name"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Nama
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              placeholder="Masukkan nama Anda"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="Masukkan email Anda"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="message"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              Pesan
-            </label>
-            <textarea
-              id="message"
-              name="message"
-              rows={6}
-              placeholder="Tulis pesan Anda"
-              className="w-full rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:border-[var(--color-primary)] focus:bg-white"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="rounded-full bg-[var(--color-accent)] px-6 py-3.5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(255,138,61,0.28)] transition hover:-translate-y-0.5"
-          >
-            Kirim Pesan
-          </button>
-        </form>
+      <section className="grid gap-4 md:grid-cols-3">
+        {infoCards.map((item) => (
+          <Card key={item.title}>
+            <CardContent>
+              <p className="text-sm font-semibold text-slate-500">{item.title}</p>
+              <p className="mt-2 text-xl font-extrabold text-slate-950">{item.value}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">{item.detail}</p>
+            </CardContent>
+          </Card>
+        ))}
       </section>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        {faqs.map((item) => (
+          <Card key={item.question}>
+            <CardContent>
+              <h2 className="text-lg font-bold text-slate-900">{item.question}</h2>
+              <p className="mt-3 text-sm leading-7 text-slate-500">{item.answer}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }
