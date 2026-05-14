@@ -1,35 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminAuthButton() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    if (typeof document === "undefined") {
-      return false;
-    }
+  const pathname = usePathname();
+  const { isLoading, profile, signOut, user } = useAuth();
 
-    return document.cookie
-      .split("; ")
-      .some((cookie) => cookie === "isLoggedIn=true");
-  });
-
-  function handleLogout() {
-    document.cookie = "isLoggedIn=; path=/; max-age=0; samesite=lax";
-    setIsLoggedIn(false);
+  async function handleLogout() {
+    await signOut();
     router.replace("/login");
     router.refresh();
   }
 
-  if (!isLoggedIn) {
+  if (isLoading) {
+    return (
+      <span className="inline-flex min-h-10 items-center rounded-full border border-slate-200/80 bg-white px-4 py-2.5 text-sm font-semibold text-slate-400 shadow-sm">
+        Memuat...
+      </span>
+    );
+  }
+
+  if (!user) {
+    const nextPath =
+      pathname && pathname !== "/login" ? `?redirect=${pathname}` : "";
+
     return (
       <Link
-        href="/login"
-        className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+        href={`/login${nextPath}`}
+        className="inline-flex min-h-10 items-center rounded-full border border-slate-200/80 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
       >
-        Login Admin
+        Login
       </Link>
     );
   }
@@ -38,9 +41,13 @@ export default function AdminAuthButton() {
     <button
       type="button"
       onClick={handleLogout}
-      className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)] transition hover:border-red-200 hover:text-red-600"
+      className={`inline-flex min-h-10 items-center rounded-full border bg-white px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
+        profile?.role === "admin"
+          ? "border-red-200 text-red-600 hover:bg-red-50"
+          : "border-slate-200 text-slate-700 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+      }`}
     >
-      Logout Admin
+      {profile?.role === "admin" ? "Logout Admin" : "Logout"}
     </button>
   );
 }

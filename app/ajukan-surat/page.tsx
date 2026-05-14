@@ -1,31 +1,49 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
+import { useRouter } from "next/navigation";
 import { ToastContainer } from "@/components/Toast";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { upsertCurrentUserProfile } from "@/lib/authProfile";
+import { createNotification } from "@/lib/notifications";
+import {
+  formatSupabaseError,
+  getSupabaseActionableMessage,
+  isProfilesForeignKeyError,
+  isSupabaseFetchError,
+  logAuthError,
+  logAuthWarning,
+} from "@/lib/supabaseAuthErrors";
+import type { ProfileRow } from "@/lib/supabaseClient";
 
 type FormState = {
+  alamat: string;
+  dokumen: string;
+  jenis_surat: string;
   nama: string;
   nik: string;
-  alamat: string;
-  jenis_surat: string;
-  dokumen: string;
 };
 
 type FormErrors = {
-  nama?: string;
-  nik?: string;
   alamat?: string;
   jenis_surat?: string;
+  nama?: string;
+  nik?: string;
 };
 
-const initialFormState: FormState = {
-  nama: "",
-  nik: "",
-  alamat: "",
-  jenis_surat: "",
-  dokumen: "",
+type ReapplyDraft = {
+  alamat: string;
+  id: number;
+  jenis_surat: string;
+  nama: string;
+  nik: string;
 };
 
 const jenisSuratOptions = [
@@ -33,54 +51,117 @@ const jenisSuratOptions = [
   "Surat Domisili",
   "Surat Keterangan Usaha",
   "Surat Keterangan Tidak Mampu",
+  "Surat Keterangan Umum",
 ];
 
-export default function AjukanSuratPage() {
-  const [formData, setFormData] = useState<FormState>(initialFormState);
+function validateField(name: keyof FormErrors, value: string) {
+  const trimmedValue = value.trim();
+
+  if (name === "nama") {
+    if (!trimmedValue) return "Nama wajib diisi.";
+    if (!/^[A-Za-z\s]+$/.test(trimmedValue)) {
+      return "Nama hanya boleh berisi huruf dan spasi.";
+    }
+    return "";
+  }
+
+  if (name === "nik") {
+    if (!trimmedValue) return "NIK wajib diisi.";
+    if (!/^\d+$/.test(trimmedValue)) return "NIK hanya boleh berisi angka.";
+    if (trimmedValue.length !== 16) return "NIK harus terdiri dari 16 digit.";
+    return "";
+  }
+
+  if (name === "alamat") {
+    if (!trimmedValue) return "Alamat wajib diisi.";
+    if (trimmedValue.length < 5) return "Alamat minimal 5 karakter.";
+    return "";
+  }
+
+  if (name === "jenis_surat") {
+    if (!trimmedValue) return "Jenis surat wajib dipilih.";
+    return "";
+  }
+
+  return "";
+}
+
+function getInputClassName(hasError: boolean) {
+  return `w-full rounded-2xl bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:bg-white ${
+    hasError
+      ? "border border-red-300 focus:border-red-500"
+      : "border border-slate-200 focus:border-[var(--color-primary)]"
+  }`;
+}
+
+function readReapplyDraft() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const searchParams = new URLSearchParams(window.location.search);
+  if (!searchParams.get("reapply")) {
+    return null;
+  }
+
+  const rawDraft = sessionStorage.getItem("wargaku-reapply-draft");
+  if (!rawDraft) {
+    return null;
+  }
+
+  try {
+    const parsedDraft = JSON.parse(rawDraft) as ReapplyDraft;
+    return parsedDraft;
+  } catch (error) {
+    console.error("Failed to parse reapply draft", error);
+    return null;
+  } finally {
+    sessionStorage.removeItem("wargaku-reapply-draft");
+  }
+}
+
+function createInitialFormState(profile: ProfileRow | null, reapplyDraft: ReapplyDraft | null): FormState {
+  if (reapplyDraft) {
+    return {
+      alamat: reapplyDraft.alamat,
+      dokumen: "",
+      jenis_surat: reapplyDraft.jenis_surat,
+      nama: reapplyDraft.nama,
+      nik: reapplyDraft.nik,
+    };
+  }
+
+  return {
+    alamat: profile?.alamat || "",
+    dokumen: "",
+    jenis_surat: "",
+    nama: profile?.full_name || "",
+    nik: profile?.nik || "",
+  };
+}
+
+function AjukanSuratForm({ profile }: { profile: ProfileRow | null }) {
+  const router = useRouter();
+  const { refreshProfile, supabase, user } = useAuth();
+  const [reapplyDraft] = useState<ReapplyDraft | null>(() => readReapplyDraft());
+  const [reapplySourceId, setReapplySourceId] = useState<number | null>(
+    reapplyDraft?.id ?? null,
+  );
+  const [formData, setFormData] = useState<FormState>(() =>
+    createInitialFormState(profile, reapplyDraft),
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toasts, showToast, dismiss } = useToast();
 
-  function validateField(name: keyof FormErrors, value: string) {
-    const trimmedValue = value.trim();
-
-    if (name === "nama") {
-      if (!trimmedValue) return "Nama wajib diisi.";
-      if (!/^[A-Za-z\s]+$/.test(trimmedValue)) {
-        return "Nama hanya boleh berisi huruf dan spasi.";
-      }
-      return "";
-    }
-
-    if (name === "nik") {
-      if (!trimmedValue) return "NIK wajib diisi.";
-      if (!/^\d+$/.test(trimmedValue)) return "NIK hanya boleh berisi angka.";
-      if (trimmedValue.length !== 16) return "NIK harus terdiri dari 16 digit.";
-      return "";
-    }
-
-    if (name === "alamat") {
-      if (!trimmedValue) return "Alamat wajib diisi.";
-      if (trimmedValue.length < 5) return "Alamat minimal 5 karakter.";
-      return "";
-    }
-
-    if (name === "jenis_surat") {
-      if (!trimmedValue) return "Jenis surat wajib dipilih.";
-      return "";
-    }
-
-    return "";
-  }
-
   function validateForm() {
     const nextErrors: FormErrors = {
-      nama: validateField("nama", formData.nama),
-      nik: validateField("nik", formData.nik),
       alamat: validateField("alamat", formData.alamat),
       jenis_surat: validateField("jenis_surat", formData.jenis_surat),
+      nama: validateField("nama", formData.nama),
+      nik: validateField("nik", formData.nik),
     };
 
     const normalizedErrors = Object.fromEntries(
@@ -91,24 +172,22 @@ export default function AjukanSuratPage() {
     return Object.keys(normalizedErrors).length === 0;
   }
 
-  function getInputClassName(hasError: boolean) {
-    return `w-full rounded-2xl bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:bg-white ${
-      hasError
-        ? "border border-red-300 focus:border-red-500"
-        : "border border-slate-200 focus:border-[var(--color-primary)]"
-    }`;
-  }
-
   function handleChange(
     event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) {
     const { name, value } = event.target;
+
     setFormData((current) => ({
       ...current,
       [name]: value,
     }));
 
-    if (name in fieldErrors || name === "nama" || name === "nik" || name === "alamat" || name === "jenis_surat") {
+    if (
+      name === "nama" ||
+      name === "nik" ||
+      name === "alamat" ||
+      name === "jenis_surat"
+    ) {
       const error = validateField(name as keyof FormErrors, value);
       setFieldErrors((current) => ({
         ...current,
@@ -127,18 +206,31 @@ export default function AjukanSuratPage() {
   }
 
   function resetForm() {
-    setFormData(initialFormState);
+    setFormData(createInitialFormState(profile, null));
     setErrorMessage("");
     setFieldErrors({});
+    setReapplySourceId(null);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get("reapply")) {
+        router.replace("/ajukan-surat");
+      }
     }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
+
+    if (!user) {
+      router.replace("/login?redirect=/ajukan-surat");
+      return;
+    }
 
     if (!validateForm()) {
       const message = "Periksa kembali field yang masih belum valid.";
@@ -149,43 +241,109 @@ export default function AjukanSuratPage() {
 
     setIsSubmitting(true);
 
-    let error: { message: string } | null = null;
-
     try {
-      const supabase = getSupabaseClient();
-      const result = await supabase.from("pengajuan_surat").insert([
-        {
-          nama: formData.nama.trim(),
-          nik: formData.nik.trim(),
+      try {
+        await upsertCurrentUserProfile(user, {
           alamat: formData.alamat.trim(),
+          email: user.email ?? profile?.email ?? null,
+          full_name: formData.nama.trim(),
+          nik: formData.nik.trim(),
+          role: profile?.role ?? "user",
+        });
+      } catch (profileError) {
+        logAuthWarning("ajukan-surat profile upsert skipped", profileError, {
+          userId: user.id,
+        });
+
+        if (
+          !isProfilesForeignKeyError(profileError) &&
+          !isSupabaseFetchError(profileError)
+        ) {
+          throw profileError;
+        }
+
+        showToast(
+          "warning",
+          "Profil belum tersimpan",
+          formatSupabaseError(profileError),
+        );
+      }
+
+      const insertResponse = await supabase
+        .from("pengajuan_surat")
+        .insert([
+          {
+            alamat: formData.alamat.trim(),
+            dokumen: formData.dokumen || null,
+            file_surat: null,
+            jenis_surat: formData.jenis_surat,
+            nama: formData.nama.trim(),
+            nik: formData.nik.trim(),
+            parent_pengajuan_id: reapplySourceId,
+            status: "pending",
+            user_id: user.id,
+          },
+        ])
+        .select("*")
+        .single();
+      const { data: insertedPengajuan, error: insertError } = insertResponse;
+
+      if (insertError) {
+        logAuthError("pengajuan_surat.insert failed", insertError, {
           jenis_surat: formData.jenis_surat,
-          dokumen: formData.dokumen || "",
-          status: "pending",
-        },
-      ]);
+          parent_pengajuan_id: reapplySourceId,
+          user_id: user.id,
+        });
+        throw insertError;
+      }
 
-      error = result.error;
-    } catch (clientError) {
-      error = {
-        message:
-          clientError instanceof Error
-            ? clientError.message
-            : "Terjadi kesalahan saat menghubungkan ke Supabase.",
-      };
+      try {
+        await createNotification({
+          message:
+            reapplySourceId
+              ? "Pengajuan ulang berhasil dikirim dan menunggu proses admin."
+              : "Pengajuan surat berhasil dikirim dan menunggu proses admin.",
+          metadata: {
+            jenis_surat: formData.jenis_surat,
+            pengajuan_id: insertedPengajuan.id,
+            status: insertedPengajuan.status,
+          },
+          title: reapplySourceId ? "Ajukan ulang berhasil" : "Pengajuan berhasil",
+          type: "submission",
+          userId: user.id,
+        });
+      } catch (notificationError) {
+        logAuthWarning("submission notification skipped", notificationError, {
+          userId: user.id,
+        });
+        showToast(
+          "warning",
+          "Pengajuan tersimpan",
+          "Pengajuan berhasil dikirim, tetapi notifikasi gagal disimpan.",
+        );
+      }
+
+      await refreshProfile();
+
+      showToast(
+        "success",
+        "Berhasil",
+        reapplySourceId
+          ? "Pengajuan ulang berhasil dikirim."
+          : "Pengajuan berhasil dikirim.",
+      );
+      resetForm();
+    } catch (error) {
+      const message =
+        getSupabaseActionableMessage(error) ??
+        (error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat mengirim pengajuan.");
+      setErrorMessage(message);
+      showToast("error", "Gagal", message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
-
-    if (error) {
-      setErrorMessage(error.message);
-      const toastMessage =
-        error.message || "Terjadi kesalahan saat mengirim.";
-      showToast("error", "Gagal", toastMessage);
-      return;
-    }
-
-    showToast("success", "Berhasil", "Pengajuan berhasil dikirim");
-    resetForm();
   }
 
   return (
@@ -196,13 +354,20 @@ export default function AjukanSuratPage() {
             Form Pengajuan Surat
           </span>
           <h1 className="mt-5 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
-            Ajukan surat secara digital dengan proses yang lebih rapi.
+            Ajukan surat secara digital dengan akun warga Anda.
           </h1>
           <p className="mt-4 text-base leading-8 text-slate-600 sm:text-lg">
-            Isi data warga, pilih jenis surat, lalu kirim pengajuan ke sistem
-            WargaKu untuk diproses oleh pengurus RT.
+            Data akun akan digunakan sebagai dasar pengajuan, lalu sistem
+            WargaKu menyimpan permohonan Anda dengan role user yang aman.
           </p>
         </div>
+
+        {reapplySourceId ? (
+          <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Anda sedang mengajukan ulang surat yang sebelumnya ditolak. Data
+            lama sudah dimuat otomatis, silakan periksa kembali sebelum kirim.
+          </div>
+        ) : null}
 
         <form className="mt-10 space-y-6" onSubmit={handleSubmit}>
           <div className="grid gap-6 md:grid-cols-2">
@@ -268,11 +433,7 @@ export default function AjukanSuratPage() {
               rows={4}
               value={formData.alamat}
               onChange={handleChange}
-              className={`w-full rounded-[1.5rem] bg-slate-50 px-4 py-3.5 text-slate-900 outline-none transition focus:bg-white ${
-                fieldErrors.alamat
-                  ? "border border-red-300 focus:border-red-500"
-                  : "border border-slate-200 focus:border-[var(--color-primary)]"
-              }`}
+              className={getInputClassName(Boolean(fieldErrors.alamat))}
               placeholder="Masukkan alamat lengkap"
               aria-invalid={Boolean(fieldErrors.alamat)}
             />
@@ -329,7 +490,8 @@ export default function AjukanSuratPage() {
                 className="block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 file:mr-4 file:rounded-full file:border-0 file:bg-[var(--color-primary-soft)] file:px-4 file:py-2 file:font-semibold file:text-[var(--color-primary)] hover:file:bg-[#d8ebfb]"
               />
               <p className="mt-2 text-xs text-slate-500">
-                Opsional. Saat ini nama file akan disimpan sebagai teks.
+                Saat ini file disimpan sebagai nama dokumen. Implementasi bisa
+                ditingkatkan ke Supabase Storage di tahap berikutnya.
               </p>
             </div>
           </div>
@@ -346,7 +508,11 @@ export default function AjukanSuratPage() {
               disabled={isSubmitting}
               className="rounded-full bg-[var(--color-accent)] px-6 py-3.5 text-sm font-bold text-white shadow-[0_16px_35px_rgba(255,138,61,0.28)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? "Mengirim..." : "Kirim Pengajuan"}
+              {isSubmitting
+                ? "Mengirim..."
+                : reapplySourceId
+                  ? "Kirim Ulang Pengajuan"
+                  : "Kirim Pengajuan"}
             </button>
             <button
               type="button"
@@ -363,4 +529,69 @@ export default function AjukanSuratPage() {
       <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </section>
   );
+}
+
+export default function AjukanSuratPage() {
+  const router = useRouter();
+  const { isAdmin, isAuthenticated, isLoading, profile } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login?redirect=/ajukan-surat");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return (
+      <section className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-3xl rounded-[2rem] border border-white/80 bg-white/95 p-6 shadow-sm sm:p-8">
+          <div className="animate-pulse space-y-6">
+            <div className="mx-auto h-5 w-32 rounded-full bg-slate-200" />
+            <div className="mx-auto h-10 w-3/4 rounded-2xl bg-slate-200" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="h-16 rounded-[1.4rem] bg-slate-100" />
+              <div className="h-16 rounded-[1.4rem] bg-slate-100" />
+            </div>
+            <div className="h-36 rounded-[1.6rem] bg-slate-100" />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="h-16 rounded-[1.4rem] bg-slate-100" />
+              <div className="h-16 rounded-[1.4rem] bg-slate-100" />
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (isAdmin) {
+    return (
+      <section className="flex flex-1 items-center justify-center">
+        <div className="w-full max-w-2xl rounded-[2rem] border border-amber-200 bg-white p-8 shadow-sm">
+          <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-700">
+            Akses User
+          </span>
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950">
+            Halaman pengajuan surat khusus untuk user.
+          </h1>
+          <p className="mt-3 text-sm leading-7 text-slate-600">
+            Anda login sebagai admin. Untuk memproses pengajuan warga, gunakan
+            halaman status pengajuan.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/status")}
+            className="mt-6 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white"
+          >
+            Buka Status Pengajuan
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return <AjukanSuratForm profile={profile} />;
 }
